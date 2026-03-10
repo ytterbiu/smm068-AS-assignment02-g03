@@ -1,0 +1,46 @@
+# Folders
+.vscode/*
+a_submission-docs/
+
+# user settings
+.*DS_Store/*
+.DS_Store
+.Rproj.user
+*.Rproj
+
+# file types
+*.pdf
+*.html
+*.csv
+.RData
+.Rhistory
+*.tex
+*.aux
+*.log
+*.synctex*
+*.css
+*.xlsx
+*.doc*
+*.ppt*
+*.dfc*
+*.svg
+*.mp4
+
+# files
+*.fdb_latexmk
+*.aux
+*.log
+*.synctex.gz
+*.bbl
+*.fls
+*.toc
+*.xdv
+*.blg
+*.xls*
+
+peer-assessment/*
+
+# cached files
+figure-testing.R
+*.dcf
+utility_functions.R
