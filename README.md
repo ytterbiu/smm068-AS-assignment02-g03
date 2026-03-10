@@ -4,7 +4,7 @@ Term 2 group project 02 (out of 2 total this term) for Financial Economics (50%
 of coursework grade - 10% of module).
 
 - Group 03 working directory
-- HTML report: TBI
+- HTML report: https://ytterbiu.github.io/smm068-AS-assignment02-g03/
 
 ## Formatting guide
 
@@ -15,8 +15,8 @@ Making notes here for collaboration using rmd format:
 - Avoid putting + or - at the start of a new line within an `align*` environment
 - Use `$$ (maths) $$` for display math mode for consistency, rather than
   `\[ and \]`
-- This character `−` raises warning in X&#x018E;LaTeX, have replaced throughout
-  with `-`
+- This character `−` raises warning in X&#x018E;LaTeX replace throughout with
+  `-`
 
 ## Structure
 
@@ -121,6 +121,6 @@ knitr::knit("report.Rmd")
 sessionInfo()
 ```
 
-## Acknowledgements
+## Acknowledgements / References
 
 To be inserted.
