@@ -1,0 +1,335 @@
+---
+title: "TBI"
+subtitle: "SMM068 (2025-26) Group Coursework 02 - Group 03"
+author:
+  - "Benjamin Evans"
+  - "Basmah Khan"
+  - "Bong Su Kil"
+  - "Ardi Wira Sudarmo"
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output:
+  bookdown::html_document2:
+    self_contained: true
+    css: style.css
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    number_sections: true
+    code_folding: hide
+    theme: united
+    highlight: tango
+    df_print: paged
+  # runtime: shiny
+  bookdown::pdf_document2:
+    includes:
+      in_header: preamble.tex
+    pandoc_args:
+      - "--lua-filter=answer.lua"
+    number_sections: true
+    toc: true
+    latex_engine: xelatex
+    citation_package: natbib
+    keep_tex: true
+# fontsize: 10pt
+bibliography: references.bib
+---
+
+```{=latex}
+\newpage
+```
+
+```{=html}
+<h1>Information</h1>
+
+This R Markdown document was created as part of a group assignment for SMM068 at Bayes Business School, City St George's, University of London in Term 2 2025-26.
+
+```
+
+```{r asthetic-header, include=FALSE, echo=FALSE}
+# ============================================================================ #
+# Key Information ====
+# SMM068 Financial Economics (Subject CM2)
+# Group Coursework 2025-26
+# Group:        Group 08
+# Authors (in alphabetical order):
+#   - Benjamin Evans
+#   - Basmah Khan
+#   - Bong Su Kil
+#   - Ardi Wira Sudarmo
+# Professor:    Professor Ioannis Kyriakou
+# Institution:  Bayes Business School - City St George's, University of London
+# Date:         30 Mar 2026
+#
+# Description:  Term 2 group project for SMM068 Financial Economics
+#               (50% of coursework grade - 10% of module grade). The R code
+#               below has been exported directly from an R Markdown (.rmd) file.
+#               Hence the knitr settings.
+#
+# Dependencies:
+#   - quantmod: for downloading
+#   - tidyverse: loads dplyr, tidyr, ggplot2, purrr (& others)
+#   - TBI: loads dplyr, tidyr, ggplot2, purrr (& others)
+#
+# Acknowledgements
+#   - Bodie et al., 2024, chapters 5-8 were used as a primary source for the
+#     concepts coded here (in addition to the lecture notes)
+# ============================================================================ #
+```
+
+```{r setup-knitr, include=FALSE, echo=FALSE}
+# Setup & configuration ====
+#----------------------- Initial setup (knitr settings) -----------------------#
+dir.create("fig", showWarnings = FALSE)
+
+# Defaults common to all outputs
+knitr::opts_chunk$set(
+  echo     = TRUE,
+  message  = FALSE,
+  warning  = FALSE,
+  fig.align = "center",
+  out.width = "100%",
+  fig.path  = "fig/",
+  dpi       = 300
+)
+
+# Output-specific settings
+if (knitr::is_latex_output()) {
+  knitr::opts_chunk$set(
+    fig.width = 6,
+    fig.height = 4,
+    dev = "pdf",
+    fig.pos = "!ht",
+    out.extra = ""
+  )
+} else {
+  knitr::opts_chunk$set(
+    fig.width = 6,
+    fig.height = 4,
+    dev = "svglite"  # or "png"
+  )
+}
+```
+
+```{r setup-qol, include=FALSE, echo=FALSE}
+#----------------------------- Clean environment ------------------------------#
+rm(list = ls()) # Remove all objects
+graphics.off() # Close all graphical devices
+cat("\014") # Clean console
+```
+
+```{r load-dependencies, include=FALSE, echo=FALSE}
+#------------------- Load dependencies / external libraries -------------------#
+# --- Data Fetching ---
+# TBI
+
+# --- Data Manipulation & Plotting ---
+library(tidyverse) # loads dplyr, tidyr, ggplot2, purrr (& others)
+library(patchwork) # for combining multiple plots into one figure
+
+# --- Reporting & Tables ---
+library(kableExtra) # for general tables
+library(DT) # for HTML interactive data tables
+library(plotly) # for interactive html plots
+library(pander) # for writing to pandoc
+```
+
+```{r html-app, echo=FALSE, results='asis', eval=knitr::is_html_output(), purl=FALSE}
+#------------------------------ HTML link to app ------------------------------#
+library(htmltools)
+
+div(style = "background-color: #f8f9fa; padding: 20px; border: 1px solid #e9ecef; border-radius: 5px; text-align: center; margin-bottom: 30px;",
+  h3("Bonus Interactive Dashboard Available"),
+  p("!!TBI."),
+  a(href = "https://3enji.shinyapps.io/smm068-a01-g08-dashboard/",
+    target = "_blank",
+    class = "btn btn-primary",
+    style = "background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;",
+    "Launch Interactive Dashboard")
+)
+```
+
+```{r custom-functions, include=FALSE, echo=FALSE}
+#---------------------------- Custom QOL functions ----------------------------#
+#####################################
+# function: banner comments (used to to section up code)
+# Usage: banner_comment("Element 1: data cleaning") -> then ctrl + v (or cmd+v)
+#####################################
+banner_comment <- function(text, width = 80, border = "#", fill = "-") {
+  txt <- paste0(" ", text, " ")
+  inner_width <- width - 2 * nchar(border)
+  banner_string <- ""
+
+  if (inner_width <= nchar(txt)) {
+    banner_string <- paste0(border, txt, border)
+  } else {
+    pad_total <- inner_width - nchar(txt)
+    pad_left <- pad_total %/% 2
+    pad_right <- pad_total - pad_left
+
+    banner_string <- paste0(
+      border,
+      strrep(fill, pad_left),
+      txt,
+      strrep(fill, pad_right),
+      border
+    )
+  }
+
+  cat(banner_string, "\n")
+  # copy banner to allow direct pasting (requires clipr)
+  clipr::write_clip(banner_string)
+  # avoid [1] when printing if want to manually copy
+  invisible(banner_string)
+}
+#####################################
+# function: format p-values for text
+# Usage (in-line): `r format_p_vals(ad_test_result$p.value)`
+# Usage (console): format_p_vals(ad_test_result$p.value)
+#####################################
+format_p_vals <- function(p) {
+  if (length(p) != 1L || is.na(p)) {
+    stop("Error! p must be a single non-missing value")
+  }
+  if (p > 1) {
+    stop("Error! Value greater than 1")
+  }
+  if (p < 0) {
+    stop("Error! Value less than 0")
+  }
+
+  if (p >= 0.01) {
+    paste0("= ", formatC(p, format = "f", digits = 2))
+  } else if (p >= 0.001) {
+    paste0("= ", formatC(p, format = "f", digits = 3))
+  } else {
+    "< 0.001"
+  }
+}
+#####################################
+# function: format confidence intervals for tables & text
+# Usage (in-line): `r format_interval(el2_ci_normal_95[1], el2_ci_normal_95[2])`
+# Usage (console): format_interval(el2_ci_normal_95[1], el2_ci_normal_95[2])
+#####################################
+format_interval <- function(lower, upper, digits = 3, small_interval = 5L) {
+  paste0(
+    "[",
+    formatC(
+      lower,
+      format = "f",
+      digits = digits,
+      small.interval = small_interval,
+      small.mark = " "
+    ),
+    ", ",
+    formatC(
+      upper,
+      format = "f",
+      digits = digits,
+      small.interval = small_interval,
+      small.mark = " "
+    ),
+    "]"
+  )
+}
+#####################################
+# function: format truncated ellipses
+# Usage (in-line): `r tbi`
+# Usage (console): tbi
+#####################################
+fmt_trunc_ellip <- function(
+  x,
+  digits = 7,
+  ellip = "...",
+  tol = 1e-12,
+  trim_zeros_if_exact = TRUE
+) {
+  out <- rep(NA_character_, length(x))
+  ok <- is.finite(x)
+  scale <- 10^digits
+  xt <- trunc(x[ok] * scale) / scale
+  s <- formatC(xt, format = "f", digits = digits)
+  add <- abs(x[ok] - xt) > tol * pmax(1, abs(x[ok]))
+  if (trim_zeros_if_exact) {
+    s_trim <- sub("0+$", "", s) # drop trailing zeros
+    s_trim <- sub("\\.$", "", s_trim) # drop trailing decimal point
+  } else {
+    s_trim <- s
+  }
+  out[ok] <- ifelse(add, paste0(s, ellip), s_trim)
+  out[is.na(x)] <- NA_character_
+  out
+}
+#####################################
+# function: function to format 6dp numbers with a space after the 3rd decimal
+# digit
+# Usage (in-line): TBI
+# Usage (console): TBI
+#####################################
+format_spaced_6dp <- function(x) {
+  # Format to 6 decimal places
+  s <- sprintf("%.6f", x)
+  # Insert space between the first 3 and last 3 decimal digits
+  sub("(\\.[0-9]{3})([0-9]{3})$", "\\1 \\2", s)
+}
+```
+
+# Binomial tree {#qone}
+
+# Binomial tree figure {#qtwo}
+
+# European vanilla put option {#qthr}
+
+# Bermudan put option {#qfou}
+
+# Commenting on the relative prices of {#qfiv}
+
+# Explain how Bermudan option would change with... {#qsix}
+
+```{=latex}
+\newpage
+```
+
+<!-- # Conclusions
+
+TBI -->
+
+<!-- ```{=html} -->
+<!-- # References -->
+<!-- <div id="refs"></div> -->
+<!-- ``` -->
+
+<!-- ```{=latex} -->
+<!-- \bibliography{references.bib} -->
+<!-- ``` -->
+
+```{=latex}
+\newpage
+\section*{Appendices}
+\addcontentsline{toc}{section}{Appendices}
+
+% --- restore default section numbering in the appendix ---
+\renewcommand{\thesection}{\arabic{section}}
+\renewcommand{\thesubsection}{\thesection.\arabic{subsection}}
+\renewcommand{\thesubsubsection}{\thesubsection.\arabic{subsubsection}}
+```
+
+# (APPENDIX) Appendices {-}
+
+# Supplemental methodology {#apd-supplementary-methods}
+
+## Spreadsheet implementation (Excel) {#app:excel-impl}
+
+This subsection outlines the structure of the accompanying Excel workbook, using
+screenshots to demonstrate the layout and contents of each sheet.
+
+... TBI
+
+<!-- [^utility-theory]: -->
+<!--     Described in more detail in the appendix (\S\@ref(apd-utility-theory)). -->
+
+<!-- [^utility-skew]: -->
+<!--     This is demonstrated in the appendix (\S\@ref(apd-utility-theory) and Table -->
+<!--     \@ref(tab:exact-utility-table)) where we show that a constant relative risk -->
+<!--     aversion (CRRA) utility function with $\gamma > 0$ mathematically confirms -->
+<!--     that for risk-averse investors asset 1 results in a lower expected utility -->
+<!--     that asset 2. --> -->
