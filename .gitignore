@@ -1,6 +1,7 @@
 # Folders
 .vscode/*
 a_submission-docs/
+resources-for-gen-ai/
 
 # user settings
 .*DS_Store/*
