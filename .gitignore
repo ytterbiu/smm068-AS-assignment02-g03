@@ -2,6 +2,7 @@
 .vscode/*
 a_submission-docs/
 resources-for-gen-ai/
+.venv/
 
 # user settings
 .*DS_Store/*
@@ -45,3 +46,4 @@ peer-assessment/*
 figure-testing.R
 *.dcf
 utility_functions.R
+CM2_cwk2_verification.ipynb

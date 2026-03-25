@@ -293,7 +293,6 @@ format_var_name <- function(x) {
 #------------------- Global parameters (used across all tasks) ----------------#
 ## Q1 calibration (from Excel) ----
 S0    <- 392.74
-sigma <- 0.269077702 
 sigma <- 0.268967007212271
 T_mat <- 1
 N     <- 10
