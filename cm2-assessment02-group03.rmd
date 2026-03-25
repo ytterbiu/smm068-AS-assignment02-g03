@@ -1,5 +1,7 @@
 ---
-title: "TBI"
+title:
+  "Binomial Tree Calibration and European & Bermudan Put Option Valuation for
+  Microsoft Corporation (MSFT) Stock"
 subtitle: "SMM068 (2025-26) Group Coursework 02 - Group 03"
 author:
   - "Benjamin Evans"
@@ -271,234 +273,262 @@ format_spaced_6dp <- function(x) {
   # Insert space between the first 3 and last 3 decimal digits
   sub("(\\.[0-9]{3})([0-9]{3})$", "\\1 \\2", s)
 }
+#####################################
+# function: format variable names in green in latex (& normal code in html)
+# Usage (in-line): TBI `r format_var_name("dvisit")`
+#####################################
+format_var_name <- function(x) {
+  if (knitr::is_latex_output()) {
+    # replace all "_" with "\_" in va name
+    paste0("\\greentt{", gsub("_", "\\\\_", x), "}")
+  } else {
+    # change to paste0("<code style='color:green'>", x, "</code>") for green
+    # paste0("`", x, "`")
+    paste0("<code style='color:green'>", x, "</code>")
+  }
+}
 ```
 
-# Binomial tree {#qone}
-
-To calibrate a one-year binomial tree model for the stock price, the historical
-daily closing prices over the last ten years were accessed using the Excel
-`STOCKHISTORY` funciton. Microsoft Corporation (`MSFT`) stock was used with 10 years of daily observations,
-from 1 March 2016 to 27 February 2026. The daily log-return series was
-calculated using
-
-$$
-r_{t} = \ln\left(\dfrac{S_t}{S_{t-1}}\right)
-$$
-
-From the historical log-returns, the empirical daily variance was estimated as 
-$$
-\widehat{\text{Var}}(r_t) = 0.00028707\ldots
-$$
-
-with a corresponding daily and annual standard deviation (volatility), assuming
-252 trading days per year, was
-$$
-\begin{aligned}
-\hat{\sigma}_{\text{daily}} &= 0.01694332\ldots \\
-\hat{\sigma}_{\text{annual}} &= \hat{\sigma}_{\text{daily}} \sqrt{252} \\ &= 0.26896700\ldots \\
-\end{aligned}
-$$
-
-A one-year binomial tree with 10-time steps was then assumed, so that 
-$$
-T = 1, \quad N = 10, \quad \Delta t = \frac{T}{N} = 0.1
-$$
-
-Using the Cox–Ross–Rubinstein (CRR) specification, the up and down factors are defined by 
-$$
-u = e^{\sigma \sqrt{\Delta t}}, \quad d = 1/u
-$$
-$$
-\begin{aligned}
-\rightarrow u &= e^{(0.268967\ldots)\times \sqrt{0.1} } &= 1.088776\ldots \\
-\rightarrow d &= \frac{1}{1.088776\ldots} &= 0.918461\ldots\\
-\end{aligned}
-$$
-
-The calibrated binomial model parameters (rounded to 5 decimal places) are: 
-
-<!-- prettier-ignore -->
-::: {.answer-wrapper} 
-::: {.answer} 
-$u=1.08878, \quad d=0.91846$
-::: 
-:::
-
-These values imply that at each step of the binomial tree, the stock price either increases by a factor of approximately 1.08878 or decreases by a factor of approximately 0.91846. 
-
-For completeness, using the continuously compounded risk-free rate $r= 0.038$ as given in \@ref(qthr), the risk-neutral probability is 
-
-$$
-q 
-= \frac{e^{r\Delta t} - d}{u - d} 
-= \frac{e^{0.038 \times 0.1} - (0.91846\ldots)}{(1.08878\ldots) - (0.91846\ldots)} 
-= 0.5011\ldots 
-$$
-
-Although the main requirement in this part is to estimate $u$ and $d$, this probability is useful for the construction of the binomial tree in \@ref(qtwo). 
-
-
-# Binomial tree figure {#qtwo}
-
-Using the calibrated parameters obtained in \@ref(qone), a binomial stock price tree was constructed using a discrete-time framework. The initial stock price was taken as the most recent observed value in the dataset ($S_0 = 392.74\$$ on 27 February 2026).  The binomial tree was generated over a one-year horizon with ten discrete time steps. At each step, the stock price evolves according to the CRR model, where the price either moves up by a factor $u$ or down by a factor $d$. The stock price at each node is given by:
-
-$$
-S(t,j) = S_{0} \cdot u^{j} \cdot d^{t-j}
-$$
-
-where $t$ denotes the time step and $j$ represents the number of upward movements.
-
-The tree was implemented in Excel using a VBA procedure to systematically generate all node values and visually represent the structure (described in more detail in \S(appendix-A)). Each node corresponds to a possible future stock price, and the branching structure reflects all potential price paths over the entire time horizon. The resulting tree, shown in Figure \@ref(fig:q2-binomial-tree), illustrates how the stock price evolves over time under the binomial model, showing the recombining structure and the corresponding stock prices at each node.  The tree is recombining, meaning that different paths can lead to the same node.  The first-step node values are calculated as follows, 
-
-The tree was implemented in Excel using a VBA procedure to systematically generate all node values and visually represent the structure. Each node corresponds to a possible future stock price, and the branching structure reflects all potential price paths over the entire time horizon. The resulting tree clearly illustrates how the stock price evolves over time under the binomial model.  The tree is recombining, meaning that different paths can lead to the same node. An illustration of the binomial tree is provided below, showing the recombining structure and the corresponding stock prices at each node.
-
-$$
-S_{0} = 392.74, \quad u = 1.08878\ldots, \quad d = 0.91846\ldots
-$$
-
-The first-step node values are calculated as follows:
-$$
-\begin{aligned}
-S(1,1) &= S_{0} \cdot u &= 392.74 \times 1.08878\ldots &= 427.61 \\
-S(1,0) &= S_{0} \cdot d &= 392.74 \times 0.91846\ldots &= 360.72 
-\end{aligned}
-$$
-The second-step node values are given by:
-$$
-\begin{aligned}
-S(2,2) &= S_{0} \cdot u^{2} &= 392.74 \times (1.08878\ldots)^{2} &= 465.57 \\
-S(2,1) &= S_{0} \cdot u \cdot d &= 392.74 \times 1.08878\ldots \times 0.91846\ldots &= 392.74 \\
-S(2,0) &= S_{0} \cdot d^{2} &= 392.74 \times (0.91846\ldots)^{2} &= 331.30 \\
-\end{aligned}
-$$
-The remaining nodes are computed in the same way.
-
-Created using Excel... (& VBA). See \S\@ref(app:excel-impl) for more information.
-
-```{r q2-binomial-tree, echo=FALSE, purl=FALSE, out.width="100%", fig.cap="Binomial stock price tree over a one-year horizon with ten-time steps constructed using the Cox–Ross–Rubinstein model."}
-knitr::include_graphics("fig/q2-binomial-tree.png")
-```
-
-```{=latex}
-\newpage
-```
-
-# European vanilla put option {#qthr}
-
-# Bermudan put option {#qfou}
-
-The Bermudan put has the same parameters as the European put but permits early exercise at each of the 10 tree dates. 
-
-At every node the holder takes the greater of exercising (intrinsic value K-S) or continuing:
-
-Option 1 (formatting):
-$$
-V_{\text{berm}}(i,j) = \max \left( K - S(i,j),\; e^{-r \Delta t} \left[ q V(i+1, j+1) + (1 - q)V(i+1, j) \right] \right)
-$$
-
-Option 2:
-$$
-V_{\text{berm}}(i,j) = \max \begin{cases}
-K-S(i,j), \\
-e^{-r \Delta t} \bigg[ q \cdot V(i+1, j+1) + (1 - q)\cdot V(i+1, j) \bigg]
-\end{cases}
-$$
-
-Note: Put so price increases the more underlying stock decreases…
-
-```{r q-fou-calc, eval=TRUE, echo=TRUE, message=FALSE, warning=FALSE, attr.source='.numberLines'}
-
+```{r params-setup, include=FALSE, echo=FALSE}
+#------------------- Global parameters (used across all tasks) ----------------#
 ## Q1 calibration (from Excel) ----
-S0 <- 392.74
+S0    <- 392.74
 sigma <- 0.269077702
 T_mat <- 1
-N <- 10
-dt <- T_mat / N
+N     <- 10
+dt    <- T_mat / N
 
 ## CRR up/down factors ----
 u <- exp(sigma * sqrt(dt))
 d <- 1 / u
 
 ## Risk-neutral pricing inputs (Q3 specification) ----
-r <- 0.038
-K <- 1.05 * S0
-q <- (exp(r * dt) - d) / (u - d)
+r    <- 0.038
+K    <- 1.05 * S0
+q    <- (exp(r * dt) - d) / (u - d)
 disc <- exp(-r * dt)
+```
+
+# Binomial model calibration ($u$ and $d$ estimation) {#qone}
+
+_Note: For clarity of presentation, values in this report are displayed rounded
+to a suitable level of precision. However, all underlying calculations were
+performed using exact, unrounded figures to ensure accuracy._
+
+The dataset contains 2,503 daily MSFT closing prices from 1 March 2016 to 27
+February 2026. The most recent closing price is $S_0 = `r S0`$.
+
+To calibrate a one-year binomial tree model, the historical daily closing prices
+over the last ten years were accessed for Microsoft Corporation (MSFT) stock
+from 1 March 2016 to 27 February 2026 using the Excel
+`r format_var_name("STOCKHISTORY")` function. The daily log-return series was
+calculated using
+
+$$
+r_{t} = \ln\left(\dfrac{S_t}{S_{t-1}}\right)
+$$
+
+This yields 2,502 daily log-return observations. In Excel, this was computed in
+cell C10: `r format_var_name("=LN(B10/B9)")`
+
+From the historical log-returns, the empirical daily variance was estimated
+using the sample variance function (`r format_var_name("VAR.S")`) in Excel^[The
+sample variance is the appropriate metric here because our 10-year historical
+dataset is a sample of Microsoft's overall price history. Applying Bessel's
+correction accounts for the fact that the true population mean is unknown,
+yielding an unbiased estimator of the true daily variance.]:
+
+$$
+\widehat{\text{Var}}(r_t) = 0.000287313
+$$
+
+This corresponds to a daily standard deviation of
+$\hat{\sigma}_{\text{daily}} = 0.016950$.
+
+Assuming 252 trading days per year, the annualised volatility is:
+
+$$
+\hat{\sigma}_{\text{annual}} = \hat{\sigma}_{\text{daily}} \times \sqrt{252} = 0.016950 \times 15.875 = `r formatC(sigma, format = "f", digits = 6)`
+$$
+
+Using an assumption of ten time steps over one year:
+
+$$
+T = 1, \quad N = 10, \quad \Delta t = \frac{T}{N} = 0.1
+$$
+
+The up and down factors are defined using the Cox–Ross–Rubinstein (CRR)
+specification:
+
+$$
+u = e^{\sigma \sqrt{\Delta t}} = e^{`r formatC(sigma, format="f", digits=6)` \times \sqrt{0.1}} = `r formatC(u, format="f", digits=5)`
+\quad , \quad
+d = \frac{1}{u} = \frac{1}{`r formatC(u, format="f", digits=5)`} = `r formatC(d, format="f", digits=5)`
+$$
+
+The recombining property $u \times d = 1$ holds exactly by construction.
+
+<!-- prettier-ignore -->
+::: {.answer-wrapper}
+::: {.answer}
+$u=`r formatC(u, format="f", digits=5)`, \quad d=`r formatC(d, format="f", digits=5)`$
+:::
+:::
+
+These values imply that at each step of the binomial tree, the stock price
+either increases by a factor of approximately
+`r formatC(u, format="f", digits=5)` or decreases by a factor of approximately
+`r formatC(d, format="f", digits=5)`.
+
+For completeness, using the continuously compounded risk-free rate $r = `r r`$
+as given in \@ref(qthr), the risk-neutral probability is:
+
+$$
+q
+= \frac{e^{r\Delta t} - d}{u - d}
+= \frac{e^{`r r` \times 0.1} - (`r formatC(d, format="f", digits=5)`)}{(`r formatC(u, format="f", digits=5)`) - (`r formatC(d, format="f", digits=5)`)}
+= `r formatC(q, format="f", digits=5)`
+$$
+
+Although the main requirement in this part is to estimate $u$ and $d$, this
+probability is useful for the construction of the binomial tree in \@ref(qtwo).
+
+# Binomial stock price tree {#qtwo}
+
+Figure \@ref(fig:q2-binomial-tree-plot) illustrates the full binomial tree,
+showing the recombining structure and the corresponding stock prices at each
+node. The tree was implemented in **R**.
 
 
-# Q2: Stock Price Tree ====
+```{r q2-binomial-tree-plot, echo=FALSE, fig.width=7, fig.height=5.5, fig.cap="CRR Binomial Stock Price Tree for MSFT over a one-year horizon with ten time steps.", fig.pos='!ht'}
+par(mar = c(4, 4, 3, 1))
+plot(
+  NULL,
+  xlim = c(-0.5, N + 1.2),
+  ylim = c(min(S[S > 0]) * 0.93, max(S) * 1.04),
+  xlab = "Time step (i)",
+  ylab = "Stock price ($)",
+  main = "CRR Binomial Stock Price Tree (MSFT, N = 10)"
+)
+for (i in 0:N) {
+  for (j in 0:i) {
+    price <- S[j + 1, i + 1]
+    if (i < N) {
+      lines(c(i, i + 1), c(price, S[j + 2, i + 2]), col = "steelblue", lwd = 0.7)
+      lines(c(i, i + 1), c(price, S[j + 1, i + 2]), col = "steelblue", lwd = 0.7)
+    }
+    points(i, price, pch = 16, cex = 0.6, col = "navy")
+    text(i, price, sprintf("%.2f", price), cex = 0.42, pos = 3, offset = 0.35)
+  }
+}
+```
 
-## Pre-allocate (N+1) x (N+1) matrix ----
+Using the calibrated parameters obtained in \@ref(qone), a binomial stock price tree was constructed using a discrete-time framework. The initial stock price was taken as the most recent observed value in the dataset ($S_0 = `r S0`\$$ on 27 February 2026). The binomial tree was generated over a one-year horizon with ten discrete time steps. At each step, the stock price evolves according to the CRR model, where the price either moves up by a factor $u$ or down by a factor $d$. The stock price at each node is given by:
+
+$$
+S(t,j) = S_{0} \times u^{j} \times d^{t-j}
+$$
+
+where $t$ denotes the time step and $j$ represents the number of upward movements.
+
+The tree is recombining, meaning that different paths can lead to the same node (since $u \times d = 1$). The first-step node values are calculated as follows:
+
+$$
+S_{0} = `r S0`, \quad u = `r formatC(u, format="f", digits=5)`, \quad d = `r formatC(d, format="f", digits=5)`
+$$
+$$
+\begin{aligned}
+S(1,1) &= S_{0} \times u = `r S0` \times `r formatC(u, format="f", digits=5)` = `r formatC(S[2, 2], format="f", digits=2)` \\
+S(1,0) &= S_{0} \times d = `r S0` \times `r formatC(d, format="f", digits=5)` = `r formatC(S[1, 2], format="f", digits=2)`
+\end{aligned}
+$$
+
+The second-step node values are given by:
+$$
+\begin{aligned}
+S(2,2) &= S_{0} \times u^{2} = `r formatC(S[3, 3], format="f", digits=2)` \\
+S(2,1) &= S_{0} \times u \times d = `r formatC(S[2, 3], format="f", digits=2)` \\
+S(2,0) &= S_{0} \times d^{2} = `r formatC(S[1, 3], format="f", digits=2)`
+\end{aligned}
+$$
+
+The remaining nodes are computed using the same procedure. In **R** this was
+implemented as follows:
+<!-- , attr.source='.numberLines' -->
+```{r q2-stock-tree, echo=TRUE}
+# Building stock price matrix
+# S[j+1, i+1] = S0 * u^j * d^(i-j)
 S <- matrix(0, N + 1, N + 1)
-
-## Forward induction: S[j+1, i+1] = S0 * u^j * d^(i-j) ----
 for (i in 0:N) {
   for (j in 0:i) {
     S[j + 1, i + 1] <- S0 * u^j * d^(i - j)
   }
 }
+```
 
+The tree has `r N + 1` terminal nodes ranging from \$`r formatC(S[1, N+1], format="f", digits=2)` (10 down moves) to \$`r formatC(S[N+1, N+1], format="f", digits=2)` (10 up moves). The initial price \$`r S0` recurs along the central path at every even step.
 
-# Q3: European Put ====
+```{=latex}
+\newpage
+```
 
-## Initialise option value matrix ----
+# European vanilla put option valuation {#qthr}
+
+For a European plain vanilla put option with maturity of 1 year and a strike price equal to 105% of the initial stock price
+$$
+T = 1 \; \textrm{yr}, 
+\quad
+K = 1.05 \times S_0 = `r formatC(K, format="f", digits=3)`,
+\quad
+r = `r r * 100`\% \; \textrm{per annum}.
+$$
+where $r$ is the continuously compounded risk-free rate.
+
+As introduced in \@ref(qone), the risk-neutral up probability is:
+$$
+q = \frac{e^{r\,\Delta t} - d}{u - d}
+= \frac{e^{`r r` \times 0.1} - `r formatC(d, format="f", digits=5)`}{`r formatC(u, format="f", digits=5)` - `r formatC(d, format="f", digits=5)`}
+= `r formatC(q, format="f", digits=5)`
+$$
+
+The terminal payoff at maturity is $V(N,j) = \max(K - S(N,j),\, 0)$. For a European option, no early exercise is permitted, so the option value at each interior node is determined purely by backward induction using the discounted risk-neutral expectation:
+$$
+V(i,j) = e^{-r\,\Delta t}\biggl[q \cdot \,V(i+1,\,j+1) + (1-q) \cdot V(i+1,\,j)\biggr]
+$$
+
+```{r q3-european-put, echo=TRUE, attr.source='.numberLines'}
+# Q3: European Put -> backward induction 
+
+## initialise option value matrix 
 V_eu <- matrix(0, N + 1, N + 1)
 
-## Terminal payoff: max(K - S, 0) ----
+## terminal payoff: max(K - S, 0) 
 for (j in 0:N) {
   V_eu[j + 1, N + 1] <- max(K - S[j + 1, N + 1], 0)
 }
 
-## Backward induction: discounted risk-neutral expectation ----
+## backward induction: discounted risk-neutral expectation 
 for (i in (N - 1):0) {
   for (j in 0:i) {
     V_eu[j + 1, i + 1] <- disc *
       (q * V_eu[j + 2, i + 2] + (1 - q) * V_eu[j + 1, i + 2])
   }
 }
-
-
-# Q4: Bermudan Put ====
-
-## Initialise option value and early exercise matrices ----
-V_bm <- matrix(0, N + 1, N + 1)
-early <- matrix(FALSE, N + 1, N + 1)
-
-## Terminal payoff (identical to European) ----
-for (j in 0:N) {
-  V_bm[j + 1, N + 1] <- max(K - S[j + 1, N + 1], 0)
-}
-
-## Backward induction: max(intrinsic, continuation) ----
-for (i in (N - 1):0) {
-  for (j in 0:i) {
-    ### Continuation value: hold the option ----
-    cont <- disc * (q * V_bm[j + 2, i + 2] + (1 - q) * V_bm[j + 1, i + 2])
-    ### Intrinsic value: exercise now ----
-    exer <- K - S[j + 1, i + 1]
-    ### Take the maximum; flag early exercise nodes ----
-    V_bm[j + 1, i + 1] <- max(cont, exer)
-    early[j + 1, i + 1] <- (exer > cont) & (exer > 0)
-  }
-}
-
-
-# Results ====
-# cat(sprintf("European put price:     %.4f\n", V_eu[1, 1]))
-# cat(sprintf("Bermudan put price:     %.4f\n", V_bm[1, 1]))
-# cat(sprintf("Early exercise premium: %.4f\n", V_bm[1, 1] - V_eu[1, 1]))
 ```
 
-Will wait for Ardi, but got these values:
+Our **R** implementation first populates the terminal column with the put payoff
+(lines 7-9), then works backwards through the tree (lines 12-17), computing the
+discounted expected value at each node.
 
-- European put price (4dp):     `r formatC(V_eu[1, 1], format = "f", digits = 4)`
-- Bermudan put price (4dp):     `r formatC(V_bm[1, 1], format = "f", digits = 4)`
-- Early exercise premium (4dp): `r formatC(V_bm[1, 1] - V_eu[1, 1], format = "f", digits = 4)`
+<!-- prettier-ignore -->
+::: {.answer-wrapper}
+::: {.answer}
+**European put price:** $V_0 = `r formatC(V_eu[1, 1], format = "f", digits = 4)`$
+:::
+:::
 
-
-```{r q-fou-tree, eval=TRUE, echo=FALSE, fig.width=7, fig.height=6.0, fig.cap="Figure showing something.", fig.pos='!ht', message=FALSE, warning=FALSE}
-# Tree Plotting ====
-## Reusable plot function ----
+```{r q3-tree-plot-helper, echo=FALSE}
+# reusable plot function 
 plot_tree <- function(V, S, title, show_early = NULL) {
   par(mar = c(4, 4, 3, 1))
   yvals <- S[S > 0]
@@ -516,13 +546,13 @@ plot_tree <- function(V, S, title, show_early = NULL) {
       price <- S[j + 1, i + 1]
       val <- V[j + 1, i + 1]
 
-      ### Draw edges to next time step ----
+      ### Draw edges to next time step
       if (i < N) {
         lines(c(i, i + 1), c(price, S[j + 2, i + 2]), col = "grey70", lwd = 0.6)
         lines(c(i, i + 1), c(price, S[j + 1, i + 2]), col = "grey70", lwd = 0.6)
       }
 
-      ### Node colour: red = exercise, navy = positive, grey = zero ----
+      ### Node colour: red = exercise, navy = positive, grey = zero
       if (!is.null(show_early) && show_early[j + 1, i + 1]) {
         col <- "red"
         cex_pt <- 1.2
@@ -535,7 +565,7 @@ plot_tree <- function(V, S, title, show_early = NULL) {
       }
       points(i, price, pch = 16, cex = cex_pt, col = col)
 
-      ### Node label ----
+      ### Node label
       lbl <- sprintf("%.2f", val)
       if (!is.null(show_early) && show_early[j + 1, i + 1]) {
         lbl <- paste0(lbl, " (E)")
@@ -556,7 +586,7 @@ plot_tree <- function(V, S, title, show_early = NULL) {
     }
   }
 
-  ### Legend (Bermudan only) ----
+  ### Legend for Bermudan
   if (!is.null(show_early)) {
     legend(
       "topleft",
@@ -569,30 +599,154 @@ plot_tree <- function(V, S, title, show_early = NULL) {
     )
   }
 }
+```
+
+```{r q3-european-tree-plot, echo=FALSE, fig.width=7, fig.height=8.5, fig.cap="European Put option price tree. Node labels show the option value at each node and all zero nodes are shown in grey.", fig.pos='!ht'}
+## European put tree 
+plot_tree(
+  V_eu,
+  S,
+  sprintf(
+    "European Put Price Tree (K=%.2f, r=%.1f%%)  |  V0 = %.4f",
+    K,
+    r * 100,
+    V_eu[1, 1]
+  )
+)
+```
 
 
-## Q4 plot: Bermudan put tree ----
+```{=latex}
+\newpage
+```
+
+# Bermudan put option valuation {#qfou}
+
+A Bermudan put option may be exercised before maturity at pre-specified times over the lifetime of the option. In this case, the Bermudan put has the same parameters as the European put 
+$$
+K = `r formatC(K, format="f", digits=3)`,
+\quad
+r = `r r * 100`\%, 
+\quad
+T = 1
+$$
+but permits early exercise at each of the 10 tree dates.
+
+At every node the holder takes the greater of exercising (intrinsic value $K - S$) or continuing (holding the option):
+$$
+V_{\text{Berm}}(i,j) 
+= 
+\max \biggl(K - S(i,j),\;\; e^{-r\,\Delta t}\big[q \cdot V(i+1,j+1) + (1-q) \cdot V(i+1,j)\big]\biggr)
+$$
+
+<!-- $$ -->
+<!-- V_{\text{berm}}(i,j) = \max \begin{cases} -->
+<!-- K-S(i,j), \\ -->
+<!-- e^{-r \Delta t} \bigg[ q \cdot V(i+1, j+1) + (1 - q)\cdot V(i+1, j) \bigg] -->
+<!-- \end{cases} -->
+<!-- $$ -->
+
+```{r q4-bermudan-put, echo=TRUE, attr.source='.numberLines'}
+# Q4: Bermudan Put again using backward induction, now with early exercise
+
+## initialise option value (and early exercise matrices)
+V_bm  <- matrix(0, N + 1, N + 1)
+early <- matrix(FALSE, N + 1, N + 1)
+## terminal payoff (same as Q3 European put)
+for (j in 0:N) {
+  V_bm[j + 1, N + 1] <- max(K - S[j + 1, N + 1], 0)
+}
+
+## backward induction: max(intrinsic, continuation)
+for (i in (N - 1):0) {
+  for (j in 0:i) {
+    ### continuation value: hold the option
+    cont <- disc * (q * V_bm[j + 2, i + 2] + (1 - q) * V_bm[j + 1, i + 2])
+    ### intrinsic value: exercise now
+    exer <- K - S[j + 1, i + 1]
+    ### take the maximum; flag early exercise nodes
+    V_bm[j + 1, i + 1] <- max(cont, exer)
+    early[j + 1, i + 1] <- (exer > cont) & (exer > 0)
+  }
+}
+```
+
+Note that `r format_var_name("max(cont, exer)")` on line 20
+replaces the pure continuation value used in \@ref(qthr). The Boolean matrix 
+`r format_var_name("early")` (line 21) records nodes where immediate exercise is
+optimal (where the intrinsic value exceeds both the continuation value and
+zero).
+
+<!-- prettier-ignore -->
+::: {.answer-wrapper}
+::: {.answer}
+**Bermudan put price:** $V_0 = `r formatC(V_bm[1, 1], format = "f", digits = 4)`$
+:::
+:::
+
+```{r q4-bermudan-tree-plot, echo=FALSE, fig.width=7, fig.height=8.5, fig.cap="Bermudan Put Option Price Tree. Red nodes marked (E) indicate where early exercise is optimal and grey nodes indicate zero value. Early exercise becomes optimal in the lower portion of the tree, where the put is deep 'in-the-money' and the time value of waiting is outweighed by the immediate payoff from exercising the put.", fig.pos='!ht'}
+## Bermudan put tree ----
 plot_tree(
   V_bm,
   S,
   sprintf(
-    "Q4: Bermudan Put Price Tree (K=%.2f, r=%.1f%%)  |  V0 = %.4f",
+    "Bermudan Put Price Tree (K=%.2f, r=%.1f%%)  |  V0 = %.4f",
     K,
     r * 100,
     V_bm[1, 1]
   ),
   show_early = early
 )
-
 ```
 
 ```{=latex}
 \newpage
 ```
 
-# Commenting on the relative prices of {#qfiv}
+# Comparing the price of European and Bermudan options {#qfiv}
 
-# Explain how Bermudan option would change with... {#qsix}
+As shown in Table \@ref(tab:q5-comparison-table), the Bermudan put (V~0~ = `r formatC(V_bm[1, 1], format = "f", digits = 4)`) is more expensive than the European put (V~0~ = `r formatC(V_eu[1, 1], format = "f", digits = 4)`). The difference (`r formatC(V_bm[1, 1] - V_eu[1, 1], format = "f", digits = 4)`) is the early exercise premium, or the additional value the holder derives from the right to exercise before maturity.
+
+
+```{r q5-comparison-table, echo=FALSE}
+comparison_df <- data.frame(
+  Option = c("European put", "Bermudan put", "Early exercise premium"),
+  Price = c(
+    formatC(V_eu[1, 1], format = "f", digits = 4),
+    formatC(V_bm[1, 1], format = "f", digits = 4),
+    formatC(V_bm[1, 1] - V_eu[1, 1], format = "f", digits = 4)
+  )
+)
+kableExtra::kbl(
+  comparison_df,
+  col.names = c("Option", "Value (\\$)"),
+  caption = "Comparison of European and Bermudan put option prices.",
+  escape = FALSE,
+  booktabs = TRUE,
+  align = "lr"
+) %>%
+  kableExtra::kable_styling(full_width = FALSE, position = "center")
+```
+
+
+This flexibility enables the holder to exercise early when the option is sufficiently in-the-money, thereby capturing intrinsic value without being exposed to future uncertainty. This is evident in the binomial tree (Figure \@ref(fig:q4-bermudan-tree-plot)), where several nodes are identified as optimal early exercise points.
+
+As a result, the Bermudan option includes an early exercise premium ($\approx$ `r formatC(V_bm[1, 1] - V_eu[1, 1], format = "f", digits = 4)`), representing the value of this added flexibility. Hence, the pricing relationship is consistent with theory:
+
+$$
+V_{\text{Bermudan}} \geq V_{\text{European}}
+$$
+
+# Impact of exercise frequency on Bermudan options {#qsix}
+
+As the number of possible exercise dates increases, the value of the Bermudan option will increase (or remain unchanged), since the holder benefits from greater flexibility in choosing the optimal exercise time. With more exercise opportunities, the option can respond more effectively to favourable movements in the underlying stock price, particularly when it becomes deep in-the-money.
+
+This reduces the likelihood of suboptimal continuation decisions and increases the overall expected payoff under the risk-neutral measure. In the limiting case, as the number of exercise dates approaches continuity, the Bermudan option converges to an American option. Therefore, the ordering of option values is:
+
+$$
+V_{\text{European}} \leq V_{\text{Bermudan}} \leq V_{\text{American}}
+$$
+
 
 ```{=latex}
 \newpage
@@ -624,24 +778,75 @@ TBI -->
 
 # (APPENDIX) Appendices {-}
 
-# Supplemental methodology {#apd-supplementary-methods}
+# Supplemental Methodology {#apd-supplementary-methods}
 
-## Spreadsheet implementation (Excel) {#app:excel-impl}
+## R implementation of binomial tree for \@ref(qtwo) {#apd:R-q2}
 
-This subsection outlines the structure of the accompanying Excel workbook, using
-screenshots to demonstrate the layout and contents of each sheet.
+The binomial stock price tree was implemented in **R** using a nested loop to
+populate an $(N+1) \times (N+1)$ matrix. The element 
+`r format_var_name("S[j+1, i+1]")` stores the
+stock price at time step $i$ with $j$ upward movements. R uses 1-based indexing,
+hence the $+1$ offset. The forward induction loop iterates over all time steps
+$i = 0, \ldots, N$ and, for each step, over all reachable nodes 
+$j = 0, \ldots,i$, applying $S(i,j) = S_0 \cdot u^j \cdot d^{i-j}$.
 
-The Binomial Tree figure described in \@ref(qtwo) was implemented using VBA
+## Spreadsheet implementation (Excel) {#apd:excel-impl}
+
+This subsection outlines the structure of the accompanying Excel workbook. The calibration (estimation of $u$ and $d$) was carried out in the lightly shaded area of the provided spreadsheet...
+
+BE note: haven't filled this out yet.
 
 
-... TBI
+# Generative AI declaration {#apd:genai}
 
-<!-- [^utility-theory]: -->
-<!--     Described in more detail in the appendix (\S\@ref(apd-utility-theory)). -->
+Generative AI (GenAI) tools were used throughout this project to assist with
+project planning, methodological validation, and debugging. In practice, these
+tools functioned as an additional technical resource, providing immediate
+feedback, troubleshooting code, and challenging statistical assumptions.
 
-<!-- [^utility-skew]: -->
-<!--     This is demonstrated in the appendix (\S\@ref(apd-utility-theory) and Table -->
-<!--     \@ref(tab:exact-utility-table)) where we show that a constant relative risk -->
-<!--     aversion (CRRA) utility function with $\gamma > 0$ mathematically confirms -->
-<!--     that for risk-averse investors asset 1 results in a lower expected utility -->
-<!--     that asset 2. --> -->
+## Tools used {-}
+
+Google Gemini 3 Pro (Deep Research), ChatGPT 5.2, Claude (Anthropic).
+
+## Prompts used {-}
+
+The GenAI tools were provided with the coursework task sheet and
+extracts from our R code.
+A non-exhaustive list of prompts used is shown below. We opted to include at
+least one example of each *type* of prompt used, rather than a list of all
+prompts. For example, if we entered the prompts "How can we put two ggplots side
+by side?" and "How to remove grey background on a ggplot", we would include only
+the first of these in the list below, as both relate to plotting issues (and are
+similar to querying with a traditional search engine).
+
+- "...the top of both graphs in R are slightly different. (Pasting R code.) Can
+  this be fixed for the plot area?"
+- "Help to identify the key points here"
+- "How can this error be tracked down in an Rmd file? `! Text line contains an
+  invalid character. l.1 ^^@^^@...`"
+
+## Use of GenAI outputs & subsequent revisions {-}
+
+The GenAI tools served as a consultative resource for the group. Notably, the AI
+output:
+
+- Helped debug plotting issues and R Markdown compilation errors.
+- Commented on the structure of R code snippets and the report structure.
+- Assisted with converting draft content between document formats.
+
+## Changes made {-}
+
+All AI suggestions were critically reviewed and debated by the group before
+implementation. For example:
+
+- While the AI suggested code for complex layouts, the specific aesthetic
+  choices and annotations were manually adjusted to ensure clarity.
+- Where the AI proposed specific interpretations, these were cross-referenced
+  with academic literature (Hull 2024, lecture notes).
+- The final R code for implementation was written and debugged by the group, with
+  AI snippets being treated as drafts rather than final solutions.
+
+While GenAI was treated as a collaborator, the final analysis, statistical
+interpretation, and the written content of this report were generated and
+verified by the (human) group members.
+
