@@ -399,6 +399,14 @@ Figure \@ref(fig:q2-binomial-tree-plot) illustrates the full binomial tree,
 showing the recombining structure and the corresponding stock prices at each
 node. The tree was implemented in **R**.
 
+```{r q2-setup, include=FALSE}
+S <- matrix(0, N + 1, N + 1)
+for (i in 0:N) {
+  for (j in 0:i) {
+    S[j + 1, i + 1] <- S0 * u^j * d^(i - j)
+  }
+}
+```
 
 ```{r q2-binomial-tree-plot, echo=FALSE, fig.width=7, fig.height=5.5, fig.cap="CRR Binomial Stock Price Tree for MSFT over a one-year horizon with ten time steps.", fig.pos='!ht'}
 par(mar = c(4, 4, 3, 1))
