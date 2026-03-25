@@ -290,22 +290,17 @@ format_var_name <- function(x) {
 ```{r params-setup, include=FALSE, echo=FALSE}
 #------------------- Global parameters (computed from Excel data) -------------#
 
-## Read raw price data from submitted workbook 
-# Column B has closing prices; data starts at row 9 (row 8 is the header)
-price_data <- read_excel(
-  "CM2_cwk2_draft.xlsm",
-  sheet = "Sheet1",
-  range = cell_limits(c(9, 2), c(NA, 2)),
-  col_names = "close"
-)
-
-# Drop any trailing NA rows
-price_data <- price_data %>% filter(!is.na(close))
+## Read raw price data from csv (for github upload)
+price_data <- read.csv("CM2_cwk2_draft.csv", skip = 7, header = TRUE)
+# Clean the dollar-formatted closing price
+price_data <- price_data %>%
+  select(close = Closing.price) %>%
+  mutate(close = as.numeric(gsub("[$, ]", "", close))) %>%
+  filter(!is.na(close))
 
 ## Compute log-returns
 log_rets <- diff(log(price_data$close))
-
-## S0: most recent closing price 
+## S0: most recent closing price
 S0 <- tail(price_data$close, 1)
 
 ## Daily statistics (matches Excel VAR.S / STDEV.S) 
@@ -373,7 +368,7 @@ correction accounts for the fact that the true population mean is unknown,
 yielding an unbiased estimator of the true daily variance.]:
 
 $$
-\widehat{\text{Var}}(r_t) = `r formatC(var_daily, format = "fg", digits = 6)`
+\widehat{\text{Var}}(r_t) = `r formatC(var_daily, format = "fg", digits = 5)`
 $$
 
 This corresponds to a daily standard deviation of
