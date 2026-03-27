@@ -152,20 +152,6 @@ library(plotly) # for interactive html plots
 library(pander) # for writing to pandoc
 ```
 
-```{r html-app, echo=FALSE, results='asis', eval=knitr::is_html_output(), purl=FALSE}
-#------------------------------ HTML link to app ------------------------------#
-library(htmltools)
-
-div(style = "background-color: #f8f9fa; padding: 20px; border: 1px solid #e9ecef; border-radius: 5px; text-align: center; margin-bottom: 30px;",
-  h3("Bonus Interactive Dashboard Available"),
-  p("!!TBI."),
-  a(href = "https://3enji.shinyapps.io/smm068-a01-g08-dashboard/",
-    target = "_blank",
-    class = "btn btn-primary",
-    style = "background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;",
-    "Launch Interactive Dashboard")
-)
-```
 
 ```{r custom-functions, include=FALSE, echo=FALSE}
 #---------------------------- Custom QOL functions ----------------------------#

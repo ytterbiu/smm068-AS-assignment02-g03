@@ -121,6 +121,4 @@ knitr::knit("report.Rmd")
 sessionInfo()
 ```
 
-## Acknowledgements / References
 
-To be inserted.
