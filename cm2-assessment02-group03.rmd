@@ -110,6 +110,25 @@ if (knitr::is_latex_output()) {
     dev = "svglite"  # or "png"
   )
 }
+
+# for excel code chunks
+.default_source_hook <<- knitr::knit_hooks$get("source")
+
+knitr::knit_hooks$set(source = function(x, options) {
+  if (!is.null(options$lang)) {
+    if (knitr::is_latex_output()) {
+      paste0("\\begin{lstlisting}[language=", options$lang, "]\n",
+             paste(x, collapse = "\n"),
+             "\n\\end{lstlisting}")
+    } else {
+      paste0('<pre class="', options$lang, '-code"><code>',
+             paste(x, collapse = "\n"),
+             '</code></pre>')
+    }
+  } else {
+    .default_source_hook(x, options)
+  }
+})
 ```
 
 ```{r setup-qol, include=FALSE, echo=FALSE}
@@ -742,8 +761,29 @@ plot_tree(
 
 # Comparing the price of European and Bermudan options {#qfiv}
 
-As shown in Table \@ref(tab:q5-comparison-table), the Bermudan put (V~0~ = `r formatC(V_bm[1, 1], format = "f", digits = 4)`) is more expensive than the European put (V~0~ = `r formatC(V_eu[1, 1], format = "f", digits = 4)`). The difference (`r formatC(V_bm[1, 1] - V_eu[1, 1], format = "f", digits = 4)`) is the early exercise premium, or the additional value the holder derives from the right to exercise before maturity.
+*Comment on the relative prices of the European plain vanilla and Bermudan put
+option prices you obtained above. Write your answer in no more than 10 lines.*
 
+The Bermudan put (\$`r formatC(V_bm[1, 1], format = "f", digits = 4)`) exceeds
+the European put (\$`r formatC(V_eu[1, 1], format = "f", digits = 4)`) by 
+\$`r formatC(V_bm[1, 1] - V_eu[1, 1], format = "f", digits = 4)`. 
+This early exercise premium arises because the Bermudan contains every right the
+European has, plus the option to exercise early. This is additional flexibility
+that, under no-arbitrage, can never have negative value. Or mathematically:
+$$
+V_{\text{European}} \leq V_{\text{Bermudan}} 
+$$
+
+For puts, exercising early is attractive when deep in-the-money as the payoff,
+$K-S$, nears its ceiling $K$ so waiting offers little upside and means forgoing 
+interest at the risk free rate (3.8% p.a.). As shown in
+the Bermudan Binomial tree (Figure \@ref(fig:q4-bermudan-tree-plot)), exercising
+early first becomes optimal at step 3 ($t_{ddd}: S=304.29$ and intrinsic value >
+continuation $[\$108.09 > \$107.48]$), with the exercise boundary widening
+towards maturity. The premium 
+($`r formatC(V_bm[1, 1] - V_eu[1, 1], format = "f", digits = 2)`) reflects the 
+fact that by exercising early the put holder receives the cash strike price now,
+and can invest this return at the risk-free rate.
 
 ```{r q5-comparison-table, echo=FALSE}
 comparison_df <- data.frame(
@@ -766,20 +806,23 @@ kableExtra::kbl(
 ```
 
 
-This flexibility enables the holder to exercise early when the option is sufficiently in-the-money, thereby capturing intrinsic value without being exposed to future uncertainty. This is evident in the binomial tree (Figure \@ref(fig:q4-bermudan-tree-plot)), where several nodes are identified as optimal early exercise points.
-
-As a result, the Bermudan option includes an early exercise premium ($\approx$ `r formatC(V_bm[1, 1] - V_eu[1, 1], format = "f", digits = 4)`), representing the value of this added flexibility. Hence, the pricing relationship is consistent with theory:
-
-$$
-V_{\text{Bermudan}} \geq V_{\text{European}}
-$$
 
 # Impact of exercise frequency on Bermudan options {#qsix}
 
-As the number of possible exercise dates increases, the value of the Bermudan option will increase (or remain unchanged), since the holder benefits from greater flexibility in choosing the optimal exercise time. With more exercise opportunities, the option can respond more effectively to favourable movements in the underlying stock price, particularly when it becomes deep in-the-money.
+*Without further computations, explain how the price of the Bermudan option would
+change with increasing number of possible exercise times. Write your answer on
+no more than 7 lines.*
 
-This reduces the likelihood of suboptimal continuation decisions and increases the overall expected payoff under the risk-neutral measure. In the limiting case, as the number of exercise dates approaches continuity, the Bermudan option converges to an American option. Therefore, the ordering of option values is:
-
+As the number of permitted exercise times (ET) increases, the Bermudan put prices
+increases monotonically. Each additional ET provides
+flexibility to the holder which, under no-arbitrage, can not have negative
+value. With more ETs, the option can capture deep
+in-the-money situations more effectively, reducing the likelihood of suboptimal
+continuation and increasing the expected payoff under the risk-neutral measure.
+However, the gain from each additional ET is diminishing and the price
+increase is concave flattening as it approaches an upper bound. In the
+limiting case of continous ETs, the Bermudan option
+converges to an American option, giving the ordering of:
 $$
 V_{\text{European}} \leq V_{\text{Bermudan}} \leq V_{\text{American}}
 $$
@@ -815,24 +858,138 @@ TBI -->
 
 # (APPENDIX) Appendices {-}
 
-# Supplemental Methodology {#apd-supplementary-methods}
+<!-- ## R implementation of binomial tree for \@ref(qtwo) {#apd:R-q2} -->
 
-## R implementation of binomial tree for \@ref(qtwo) {#apd:R-q2}
+<!-- The binomial stock price tree was implemented in **R** using a nested loop to -->
+<!-- populate an $(N+1) \times (N+1)$ matrix. The element  -->
+<!-- `r format_var_name("S[j+1, i+1]")` stores the -->
+<!-- stock price at time step $i$ with $j$ upward movements. R uses 1-based indexing, -->
+<!-- hence the $+1$ offset. The forward induction loop iterates over all time steps -->
+<!-- $i = 0, \ldots, N$ and, for each step, over all reachable nodes  -->
+<!-- $j = 0, \ldots,i$, applying $S(i,j) = S_0 \cdot u^j \cdot d^{i-j}$. -->
 
-The binomial stock price tree was implemented in **R** using a nested loop to
-populate an $(N+1) \times (N+1)$ matrix. The element 
-`r format_var_name("S[j+1, i+1]")` stores the
-stock price at time step $i$ with $j$ upward movements. R uses 1-based indexing,
-hence the $+1$ offset. The forward induction loop iterates over all time steps
-$i = 0, \ldots, N$ and, for each step, over all reachable nodes 
-$j = 0, \ldots,i$, applying $S(i,j) = S_0 \cdot u^j \cdot d^{i-j}$.
+# Supplemental methodology: Excel implementation {#apd:excel-impl}
 
-## Spreadsheet implementation (Excel) {#apd:excel-impl}
+## Question 1: Excel implementation {-}
 
-This subsection outlines the structure of the accompanying Excel workbook. The calibration (estimation of $u$ and $d$) was carried out in the lightly shaded area of the provided spreadsheet...
+```{r  label = app-excel-q1, echo = FALSE, fig.cap = "Extract from spreadsheet used to answer @ref(qone).", out.width = '95%'}
+knitr::include_graphics("fig/apd-excel-q1.png")
+```
+The Excel formulae used for \@ref(qone) are outlined below. The sample variance
+and standard deviation were calculated using `VAR.S` and `STDEV.S` respectively,
+as the data represents a sample of historical observations rather than the
+entire population.
 
-BE note: haven't filled this out yet.
+```{r eval=FALSE, lang="excel"}
+# 1. Log returns
+Cell(C10) = LN(B10/B9)
 
+# 2. Variance of log-returns (daily)
+Cell(E2) = VAR.S(C10:C2522)
+
+# 3. Standard deviation of log-returns (daily)
+Cell(E3) = STDEV.S(C10:C2522)
+
+# 4. Standard deviation of log-returns (annualised)
+#    Provides an unbiased estimate of volatility
+Cell(E5) = E3*SQRT(E4)
+
+# 5. Time parameters
+T  = Cell(H2) = 1          # maturity (years)
+N  = Cell(H3) = 10         # number of time steps
+dt = Cell(H4) = H2/H3      # = 0.1
+
+# 6. Up factor (u)
+Cell(K2) = EXP(E5*SQRT(H4))
+
+# 7. Down factor (d)
+Cell(K3) = 1/K2
+
+# 8. Risk-free rate (r) and risk-neutral probability (q)
+Cell(K4) = 0.038                     # r, given in Q3 text
+Cell(K5) = (EXP(K4*H4)-K3)/(K2-K3)   # q
+```
+
+## Question 2: Excel formula construction of binomial tree {-}
+
+The following subsection describes how the binomial stock price tree was
+constructed using Excel formulae. The final output in Excel is shown in
+Figure \@ref(fig:app-excel-q2).
+
+```{r  label = app-excel-q2, echo = FALSE, fig.cap = "Replicating binomial tree construction for @ref(qtwo) using Excel.", out.width = '95%'}
+knitr::include_graphics("fig/apd-excel-q2.png")
+```
+
+<!-- Excel formulae used: -->
+```{r eval=FALSE, lang="excel"}
+# 1) Step 0
+Cell(E28) = initial Price, corresponding to 27 February 2026
+
+# 2) Step 1 to 10
+Ex: Cell(F27, F29)
+= IF(
+    MOD(COLUMN()-COLUMN($E$28)+ROW()-ROW($E$28),2)<>0, "",
+      $E$28 * 
+      ($K$2^((COLUMN()-COLUMN($E$28)+ROW($E$28)-ROW())/2)) *
+      ($K$3^((COLUMN()-COLUMN($E$28)-ROW($E$28)+ROW())/2))
+  )
+```
+
+The formula constructs the binomial stock price tree by computing the stock
+price at each node as a function of the initial price and the number of up and
+down movements. The `IF` condition ensures the only valid nodes are displayed,
+maintaining the tree structure.
+
+## Question 3: European plain vanilla put option Excel construction  {-}
+
+The European plain vanilla put option was constructed using Excel formula and
+the results were consistent across approaches, confirming the accuracy of the
+implementation.
+
+```{r  label = app-excel-q3, echo = FALSE, fig.cap = "Replicating the European plain vanilla put option calculations and tree for @ref(qthr) in Excel.", out.width = '90%'}
+knitr::include_graphics("fig/apd-excel-q3.png")
+```
+
+```{r eval=FALSE, lang="excel"}
+# 1) Step 10
+Cell(O53) = IF(O18="","",MAX($G$42-O18,0))
+#   Cell O53 returns the payoff at the 10th binomial tree node as max⁡(K-O18,0),
+#   where O18 is the node value represents the node value at that step and G42 is 
+#   the strike price.
+
+# 2) Step 9 to 0 (backward steps)
+Cell(N54) = IF(N19="","",$G$47*($K$5*O53+(1-$K$5)*O55))
+#   Cell N54 computes the discounted expected option value obtained by taking a 
+#   weighted average of the up-node (O53) and down-node (O55) values, where K5 
+#   represents the risk-neutral probability. This is computed sequentially from 
+#   step 9 back to step 0.
+```
+
+## Question 4: Bermudan put option Excel construction {-}
+
+The Bermudan put option was also constructed using Excel formula.  As with
+\@ref(qthr), the results were consistent across approaches, confirming the
+accuracy of the implementation.
+
+```{r  label = app-excel-q4, echo = FALSE, fig.cap = "Replicating European plain vanilla put option calculations and binomial tree for @ref(qfou) using Excel.", out.width = '95%'}
+knitr::include_graphics("fig/apd-excel-q4.png")
+```
+
+```{r eval=FALSE, lang="excel"}
+# 1) Step 10
+Cell(O53) = IF(O18="","",MAX($G$42-O18,0))
+#   Cell O53 returns the payoff at the 10th binomial tree node as max⁡(K-O18,0),
+#   where O18 is the node value represents the node value at that step and G42 is
+#   the strike price.
+
+# 2) Step 9 to 0 (backward steps)
+Cell(N89) = IF(N19="","",MAX($G$77-N19,$G$82*($K$5*O88+(1-$K$5)*O90)))
+#   Cell N89 computes the Bermudan option value by taking the maximum of the
+#   immediate exercise value (G77-N19) and the discounted expected continuation
+#   value G82*[K5*O88+(1-K5)*O90], where K5 is the risk-neutral probability and
+#   G77-N19 represents the intrinsic value of a put option. 
+#   This is applied sequentially by backward induction from step 9 to step 0.
+```
 
 # Generative AI declaration {#apd:genai}
 
@@ -878,8 +1035,8 @@ implementation. For example:
 
 - While the AI suggested code for complex layouts, the specific aesthetic
   choices and annotations were manually adjusted to ensure clarity.
-- Where the AI proposed specific interpretations, these were cross-referenced
-  with academic literature (Hull 2024, lecture notes).
+<!-- - Where the AI proposed specific interpretations, these were cross-referenced -->
+<!--   with academic literature (Hull 2024, lecture notes). -->
 - The final R code for implementation was written and debugged by the group, with
   AI snippets being treated as drafts rather than final solutions.
 
