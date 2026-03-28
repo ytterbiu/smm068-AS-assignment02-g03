@@ -1,0 +1,35 @@
+#TOC > ul + ul {
+  display: none !important;
+}
+
+.answer-wrapper {
+  text-align: center;
+  margin: 20px 0;
+}
+
+.answer {
+  background-color: #ffffcc; 
+  border: 1.5px solid #d4d400; 
+  border-radius: 10px;        
+  padding: 10px 20px;
+  font-weight: bold;
+  display: inline-block;      
+  text-align: center;
+  box-shadow: 2px 2px 5px rgba(0,0,0,0.1); 
+}
+
+code, pre {
+  font-family: "Source Code Pro", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+p {
+  margin: 0 0 0.8rem 0;
+}
+
+pre.excel-code {
+  background-color: #F7F7F7;
+  padding: 0.8em;
+  border-left: 3px solid #5B9BD5;
+  font-family: monospace;
+  font-size: 0.9em;
+}
