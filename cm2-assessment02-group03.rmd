@@ -572,31 +572,77 @@ discounted expected value at each node.
 :::
 
 ```{r q3-tree-plot-helper, echo=FALSE}
-# reusable plot function 
-plot_tree <- function(V, S, title, show_early = NULL) {
-  par(mar = c(4, 4, 3, 1))
+plot_tree <- function(
+  V,
+  S,
+  title,
+  show_early = NULL,
+  log_scale = FALSE,
+  show_xlab = TRUE,
+  show_x_ticks = TRUE
+) {
+  # par(mar = c(4, 4, 3, 1))
   yvals <- S[S > 0]
+
+  if (log_scale) {
+    y_coord <- function(p) log(p)
+    y_all <- log(yvals)
+    y_label <- "Stock price - log scale ($)"
+  } else {
+    y_coord <- function(p) p
+    y_all <- yvals
+    y_label <- "Stock price ($)"
+  }
+
   plot(
     NULL,
     xlim = c(-0.5, N + 1.2),
-    ylim = c(min(yvals) * 0.93, max(yvals) * 1.04),
-    xlab = "Time step (i)",
-    ylab = "Stock price ($)",
-    main = title
+    ylim = c(min(y_all) * 0.97, max(y_all) * 1.02),
+    xlab = if (show_xlab) "Time step (i)" else "",
+    ylab = y_label,
+    main = title,
+    yaxt = if (log_scale) "n" else "s",
+    xaxt = if (show_x_ticks) "s" else "n"
   )
+
+  if (log_scale) {
+    pretty_vals <- pretty(yvals, n = 8)
+    pretty_vals <- pretty_vals[
+      pretty_vals > 0 &
+        pretty_vals >= min(yvals) * 0.95 &
+        pretty_vals <= max(yvals) * 1.05
+    ]
+    axis(
+      2,
+      at = log(pretty_vals),
+      labels = sprintf("%.0f", pretty_vals),
+      las = 1,
+      cex.axis = 0.65,
+      tcl = -0.3
+    )
+  }
 
   for (i in 0:N) {
     for (j in 0:i) {
       price <- S[j + 1, i + 1]
       val <- V[j + 1, i + 1]
+      yp <- y_coord(price)
 
-      ### Draw edges to next time step
       if (i < N) {
-        lines(c(i, i + 1), c(price, S[j + 2, i + 2]), col = "grey70", lwd = 0.6)
-        lines(c(i, i + 1), c(price, S[j + 1, i + 2]), col = "grey70", lwd = 0.6)
+        lines(
+          c(i, i + 1),
+          c(yp, y_coord(S[j + 2, i + 2])),
+          col = "grey70",
+          lwd = 0.6
+        )
+        lines(
+          c(i, i + 1),
+          c(yp, y_coord(S[j + 1, i + 2])),
+          col = "grey70",
+          lwd = 0.6
+        )
       }
 
-      ### Node colour: red = exercise, navy = positive, grey = zero
       if (!is.null(show_early) && show_early[j + 1, i + 1]) {
         col <- "red"
         cex_pt <- 1.2
@@ -607,16 +653,15 @@ plot_tree <- function(V, S, title, show_early = NULL) {
         col <- "grey50"
         cex_pt <- 0.5
       }
-      points(i, price, pch = 16, cex = cex_pt, col = col)
+      points(i, yp, pch = 16, cex = cex_pt, col = col)
 
-      ### Node label
       lbl <- sprintf("%.2f", val)
       if (!is.null(show_early) && show_early[j + 1, i + 1]) {
         lbl <- paste0(lbl, " (E)")
       }
       text(
         i,
-        price,
+        yp,
         lbl,
         cex = 0.42,
         pos = 3,
@@ -630,34 +675,58 @@ plot_tree <- function(V, S, title, show_early = NULL) {
     }
   }
 
-  ### Legend for Bermudan
   if (!is.null(show_early)) {
-    legend(
-      "topleft",
-      legend = c("Early exercise (E)", "Continuation", "Zero"),
-      col = c("red", "navy", "grey50"),
-      pch = 16,
-      pt.cex = c(1.2, 0.8, 0.5),
-      cex = 0.7,
-      bg = "white"
-    )
+    # Legend for Bermudan (early exercise)
+    leg_text <- c("Early exercise (E)", "Continuation", "Zero option value")
+    leg_col <- c("red", "navy", "grey50")
+    leg_pt_cex <- c(1.2, 0.8, 0.5)
+  } else {
+    # Legend for European
+    leg_text <- c("Positive option value", "Zero option value")
+    leg_col <- c("navy", "grey50")
+    leg_pt_cex <- c(0.8, 0.5)
   }
+
+  legend(
+    "topleft",
+    legend = leg_text,
+    col = leg_col,
+    pch = 16,
+    pt.cex = leg_pt_cex,
+    cex = 0.7,
+    bg = "white"
+  )
 }
 ```
 
 
-```{r q3-european-tree-plot, echo=FALSE, fig.width=7, fig.height=8.5, fig.cap="European put option price tree, computed via backward induction from the terminal payoff, max$(K-S,0)$. Grey nodes denote out-of-the-money states where the option value is zero. Values increase toward the lower branches, reflecting the put's inverse relationship with the underlying price.", fig.pos='!ht'}
+```{r q3-european-tree-plot, echo=FALSE, fig.width=7, fig.height=8.5, fig.cap="European put option price tree on log (top) and linear (bottom) scales, computed via backward induction from the terminal payoff, max$(K-S,0)$. Grey nodes denote out-of-the-money states where the option value is zero. Values increase toward the lower branches, reflecting the put's inverse relationship with the underlying price.", fig.pos='!ht'}
 ## European put tree 
+layout(matrix(1:2), heights = c(1.8, 3.2))
+par(oma = c(0, 0, 0, 0))  
+
+## Top plot — log scale
+par(mar = c(0, 4, 3, 1)) 
 plot_tree(
-  V_eu,
-  S,
-  sprintf(
-    "European Put Price Tree (K=%.2f, r=%.1f%%)  |  V0 = %.4f",
-    K,
-    r * 100,
-    V_eu[1, 1]
-  )
+  V_eu, S,
+  sprintf("European Put (K=%.2f, r=%.1f%%)  |  V0 = %.4f",
+          K, r * 100, V_eu[1, 1]),
+  log_scale = TRUE,
+  show_xlab = FALSE,
+  show_x_ticks = FALSE
 )
+
+## Bottom plot — linear scale
+par(
+  mar = c(4, 4, 0.5, 1),
+  mgp = c(2, 1, 0) # default (3,1,0) (title, tick label, axis line)
+)
+plot_tree(
+  V_eu, S,
+  title = "",
+  log_scale = FALSE
+)
+# mtext("Linear scale", side = 3, line = 0.1, cex = 0.75, font = 3)
 ```
 
 
@@ -729,17 +798,33 @@ zero).
 :::
 :::
 
-```{r q4-bermudan-tree-plot, echo=FALSE, fig.width=7, fig.height=8.3, fig.cap="Bermudan put option price tree. Red nodes marked (E) identify states where the intrinsic payoff strictly exceeds the discounted continuation value, making early exercise optimal. This boundary emerges at step 3 and widens toward maturity, concentrated in the lower portion of the tree where the put is deep 'in-the-money' and the financing gain from receiving $K$ immediately outweighs the remaining time value.", fig.pos='!ht'}
-## Bermudan put tree ----
+```{r q4-bermudan-tree-plot, echo=FALSE, fig.width=7, fig.height=8.5, fig.cap="Bermudan put option price tree on log (top) and linear (bottom) scales. Red nodes marked (E) identify states where the intrinsic payoff strictly exceeds the discounted continuation value, making early exercise optimal. This boundary emerges at step 3 and widens toward maturity, concentrated in the lower portion of the tree where the put is deep 'in-the-money' and the financing gain from receiving $K$ immediately outweighs the remaining time value.", fig.pos='!ht'}
+## Bermudan put tree
+layout(matrix(1:2), heights = c(1.8, 3.2))
+par(oma = c(0, 0, 0, 0))  
+
+## Top plot — log scale
+par(mar = c(0, 4, 3, 1))   
+plot_tree(
+  V_bm, S,
+  sprintf("Bermudan Put Price Tree (K=%.2f, r=%.1f%%)  |  V0 = %.4f",
+          K, r * 100, V_bm[1, 1]),
+  log_scale = TRUE,
+  show_xlab = FALSE,
+  show_x_ticks = FALSE,
+  show_early = early
+)
+
+## Bottom plot — linear scale
+par(
+  mar = c(4, 4, 0.5, 1),
+  mgp = c(2, 1, 0) # default (3,1,0) (title, tick label, axis line)
+)
 plot_tree(
   V_bm,
   S,
-  sprintf(
-    "Bermudan Put Price Tree (K=%.2f, r=%.1f%%)  |  V0 = %.4f",
-    K,
-    r * 100,
-    V_bm[1, 1]
-  ),
+  title = "",
+  log_scale = FALSE,
   show_early = early
 )
 ```
