@@ -412,10 +412,9 @@ $u=`r formatC(u, format="f", digits=5)`, \quad d=`r formatC(d, format="f", digit
 These values imply that at each step of the binomial tree, the stock price
 either increases by a factor of approximately
 `r formatC(u, format="f", digits=5)` or decreases by a factor of approximately
-`r formatC(d, format="f", digits=5)`.
-
-For completeness, using the continuously compounded risk-free rate $r = `r r`$
-as given in \@ref(qthr), the risk-neutral probability is:
+`r formatC(d, format="f", digits=5)`. For completeness, using the continuously
+compounded risk-free rate $r = `r r`$ as given in \@ref(qthr), the risk-neutral
+probability is:
 
 $$
 q
@@ -429,9 +428,12 @@ probability is useful for the construction of the binomial tree in \@ref(qtwo).
 
 # Binomial stock price tree {#qtwo}
 
-Figure \@ref(fig:q2-binomial-tree-plot) illustrates the full binomial tree,
-showing the recombining structure and the corresponding stock prices at each
-node. The tree was implemented in **R**.
+Figure \@ref(fig:q2-binomial-tree-plot) shows the CRR binomial tree constructed
+using the most recent MSFT closing price in the sample as the initial value
+$S_0$. The tree recombines, producing $i+1$ distinct nodes at each step $i$,
+with stock prices computed using the up and down factors $u$ and $d$ derived
+from the annualised volatility. 
+<!-- The tree was created using **R**. -->
 
 ```{r q2-setup, include=FALSE}
 S <- matrix(0, N + 1, N + 1)
@@ -442,7 +444,7 @@ for (i in 0:N) {
 }
 ```
 
-```{r q2-binomial-tree-plot, echo=FALSE, fig.width=7, fig.height=5.5, fig.cap="CRR Binomial Stock Price Tree for MSFT over a one-year horizon with ten time steps.", fig.pos='!ht'}
+```{r q2-binomial-tree-plot, echo=FALSE, fig.width=7, fig.height=5.3, fig.cap="CRR binomial stock price tree for MSFT over a one-year horizon ($T=1$, $n=10$). Node labels show the stock price at each state. The tree recombines, producing $i+1$ distinct prices at step $i$.", fig.pos='!ht'}
 par(mar = c(4, 4, 3, 1))
 plot(
   NULL,
@@ -465,7 +467,7 @@ for (i in 0:N) {
 }
 ```
 
-Using the calibrated parameters obtained in \@ref(qone), a binomial stock price tree was constructed using a discrete-time framework. The initial stock price was taken as the most recent observed value in the dataset ($S_0 = `r S0`\$$ on 27 February 2026). The binomial tree was generated over a one-year horizon with ten discrete time steps. At each step, the stock price evolves according to the CRR model, where the price either moves up by a factor $u$ or down by a factor $d$. The stock price at each node is given by:
+Using the calibrated parameters obtained in \@ref(qone), a binomial stock price tree was constructed using a discrete-time framework. The initial stock price was taken as the most recent observed value in the dataset ($S_0 = \$`r S0`$ on 27 February 2026). The binomial tree was generated over a one-year horizon with ten discrete time steps. At each step, the stock price evolves according to the CRR model, where the price either moves up by a factor $u$ or down by a factor $d$. The stock price at each node is given by:
 
 $$
 S(t,j) = S_{0} \times u^{j} \times d^{t-j}
@@ -643,7 +645,8 @@ plot_tree <- function(V, S, title, show_early = NULL) {
 }
 ```
 
-```{r q3-european-tree-plot, echo=FALSE, fig.width=7, fig.height=8.5, fig.cap="European Put option price tree. Node labels show the option value at each node and all zero nodes are shown in grey.", fig.pos='!ht'}
+
+```{r q3-european-tree-plot, echo=FALSE, fig.width=7, fig.height=8.5, fig.cap="European put option price tree, computed via backward induction from the terminal payoff, max$(K-S,0)$. Grey nodes denote out-of-the-money states where the option value is zero. Values increase toward the lower branches, reflecting the put's inverse relationship with the underlying price.", fig.pos='!ht'}
 ## European put tree 
 plot_tree(
   V_eu,
@@ -726,7 +729,7 @@ zero).
 :::
 :::
 
-```{r q4-bermudan-tree-plot, echo=FALSE, fig.width=7, fig.height=8.5, fig.cap="Bermudan Put Option Price Tree. Red nodes marked (E) indicate where early exercise is optimal and grey nodes indicate zero value. Early exercise becomes optimal in the lower portion of the tree, where the put is deep 'in-the-money' and the time value of waiting is outweighed by the immediate payoff from exercising the put.", fig.pos='!ht'}
+```{r q4-bermudan-tree-plot, echo=FALSE, fig.width=7, fig.height=8.3, fig.cap="Bermudan put option price tree. Red nodes marked (E) identify states where the intrinsic payoff strictly exceeds the discounted continuation value, making early exercise optimal. This boundary emerges at step 3 and widens toward maturity, concentrated in the lower portion of the tree where the put is deep 'in-the-money' and the financing gain from receiving $K$ immediately outweighs the remaining time value.", fig.pos='!ht'}
 ## Bermudan put tree ----
 plot_tree(
   V_bm,
@@ -963,10 +966,10 @@ knitr::include_graphics("fig/apd-excel-q4.png")
 
 ```{r eval=FALSE, lang="excel"}
 # 1) Step 10
-Cell(O53) = IF(O18="","",MAX($G$42-O18,0))
-#   Cell O53 returns the payoff at the 10th binomial tree node as max⁡(K-O18,0),
-#   where O18 is the node value represents the node value at that step and G42 is
-#   the strike price.
+Cell(O88) = IF(O18="","",MAX($G$77-O18,0)) 
+#   Cell O88 returns the payoff at the 10th binomial tree node as max(K-O18, 0), 
+#   where O18 is the node value represents the node value at that step and G77 
+#   is the strike price. 
 
 # 2) Step 9 to 0 (backward steps)
 Cell(N89) = IF(N19="","",MAX($G$77-N19,$G$82*($K$5*O88+(1-$K$5)*O90)))
