@@ -5,6 +5,7 @@ of coursework grade - 10% of module).
 
 - Group 03 working directory
 - HTML report: https://ytterbiu.github.io/smm068-AS-assignment02-g03/
+- R shiny app: https://3enji-apps.shinyapps.io/smm068-a02-g03-dashboard/
 
 ## Formatting guide
 
