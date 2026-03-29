@@ -518,7 +518,7 @@ The tree has `r N + 1` terminal nodes ranging from \$`r formatC(S[1, N+1], forma
 
 # European vanilla put option valuation {#qthr}
 
-For a European plain vanilla put option with maturity of 1 year and a strike price equal to 105% of the initial stock price
+For a European plain vanilla put option with maturity of 1 year, a strike price equal to 105% of the initial stock price, and a continuously compounded risk-free rate of 3.8%:
 $$
 T = 1 \; \textrm{yr}, 
 \quad
@@ -526,18 +526,29 @@ K = 1.05 \times S_0 = `r formatC(K, format="f", digits=3)`,
 \quad
 r = `r r * 100`\% \; \textrm{per annum}.
 $$
-where $r$ is the continuously compounded risk-free rate.
+$$
+d < e^{(r \times dt)} < u 
+\quad \rightarrow \quad
+`r formatC(d, format="f", digits=5)` 
+< 
+e^{(`r r` \times `r dt`)} = `r formatC(exp(r*dt), format="f", digits=5)`
+< 
+`r formatC(u, format="f", digits=5)`
+$$
 
-As introduced in \@ref(qone), the risk-neutral up probability is:
+We check the no-arbitrage condition for each of the ten one-period steps, with 
+$\Delta t = 0.1$. 
 $$
 q = \frac{e^{r\,\Delta t} - d}{u - d}
 = \frac{e^{`r r` \times 0.1} - `r formatC(d, format="f", digits=5)`}{`r formatC(u, format="f", digits=5)` - `r formatC(d, format="f", digits=5)`}
 = `r formatC(q, format="f", digits=5)`
 $$
+The risk-neutral probability is well-defined (i.e. lies between 0 and 1), implying that the no-arbitrage condition holds.  
+
 
 The terminal payoff at maturity is $V(N,j) = \max(K - S(N,j),\, 0)$. For a European option, no early exercise is permitted, so the option value at each interior node is determined purely by backward induction using the discounted risk-neutral expectation:
 $$
-V(i,j) = e^{-r\,\Delta t}\biggl[q \cdot \,V(i+1,\,j+1) + (1-q) \cdot V(i+1,\,j)\biggr]
+V(i,j) = e^{-r\,\Delta t}\left[q \cdot \,V(i+1,\,j+1) + (1-q) \cdot V(i+1,\,j)\right]
 $$
 
 ```{r q3-european-put, echo=TRUE, attr.source='.numberLines'}
@@ -545,12 +556,10 @@ $$
 
 ## initialise option value matrix 
 V_eu <- matrix(0, N + 1, N + 1)
-
 ## terminal payoff: max(K - S, 0) 
 for (j in 0:N) {
   V_eu[j + 1, N + 1] <- max(K - S[j + 1, N + 1], 0)
 }
-
 ## backward induction: discounted risk-neutral expectation 
 for (i in (N - 1):0) {
   for (j in 0:i) {
@@ -774,20 +783,20 @@ for (j in 0:N) {
 ## backward induction: max(intrinsic, continuation)
 for (i in (N - 1):0) {
   for (j in 0:i) {
-    ### continuation value: hold the option
+    ### continuation value <- hold the option
     cont <- disc * (q * V_bm[j + 2, i + 2] + (1 - q) * V_bm[j + 1, i + 2])
-    ### intrinsic value: exercise now
+    ### intrinsic value <- exercise now
     exer <- K - S[j + 1, i + 1]
-    ### take the maximum; flag early exercise nodes
+    ### take the maximum & flag early exercise nodes
     V_bm[j + 1, i + 1] <- max(cont, exer)
     early[j + 1, i + 1] <- (exer > cont) & (exer > 0)
   }
 }
 ```
 
-Note that `r format_var_name("max(cont, exer)")` on line 20
+Note that `r format_var_name("max(cont, exer)")` on line 19
 replaces the pure continuation value used in \@ref(qthr). The Boolean matrix 
-`r format_var_name("early")` (line 21) records nodes where immediate exercise is
+`r format_var_name("early")` (line 20) records nodes where immediate exercise is
 optimal (where the intrinsic value exceeds both the continuation value and
 zero).
 
@@ -833,10 +842,15 @@ plot_tree(
 \newpage
 ```
 
+Assuming no-arbitrage, the Bermudan put price must be greater than or equal to
+the European put price. Here, the early exercise premium is strictly positive,
+confirming that early exercise is optimal at one or more nodes.
+
 # Comparing the price of European and Bermudan options {#qfiv}
 
-*Comment on the relative prices of the European plain vanilla and Bermudan put
-option prices you obtained above. Write your answer in no more than 10 lines.*
+<!-- *Comment on the relative prices of the European plain vanilla and Bermudan put -->
+<!-- option prices you obtained above.* -->
+*Write your answer in no more than 10 lines.*
 
 The Bermudan put (\$`r formatC(V_bm[1, 1], format = "f", digits = 4)`) exceeds
 the European put (\$`r formatC(V_eu[1, 1], format = "f", digits = 4)`) by 
@@ -883,8 +897,9 @@ kableExtra::kbl(
 
 # Impact of exercise frequency on Bermudan options {#qsix}
 
-*Without further computations, explain how the price of the Bermudan option would
-change with increasing number of possible exercise times. Write your answer on
+<!-- *Without further computations, explain how the price of the Bermudan option would -->
+<!-- change with increasing number of possible exercise times. * -->
+*Write your answer on
 no more than 7 lines.*
 
 As the number of permitted exercise times (ET) increases, the Bermudan put prices
@@ -1076,7 +1091,11 @@ and deployed to shinyapps.io. The application is available via:
 
 - https://3enji-apps.shinyapps.io/smm068-a02-g03-dashboard/
 
-Figure \@ref(fig:appendix-dashboard-1) illustrates the dashboard interface.
+```{r appendix-dashboard-1, echo=FALSE, purl=FALSE, out.width="90%", fig.cap="The R Shiny dashboard interface. A selection of US equities is downloaded globally on application start-up to avoid repeated API requests and rate-limiting restrictions. The sidebar allows users to specify the historical date window for volatility estimation, and to adjust the number of time steps ($N$), maturity, the risk-free rate ($r$), and the strike multiplier as a proportion of $S_0$."}
+knitr::include_graphics("fig/appendix-dashboard-1.png")
+```
+
+Figure \@ref(fig:appendix-dashboard-1) shows the dashboard interface.
 Sixteen US equities are available for selection, and the user may specify the
 historical date window over which annualised volatility is estimated. To
 maintain consistency with the closing-price methodology used in the main
@@ -1085,10 +1104,6 @@ than adjusted closing prices. All price series are downloaded once at
 application start-up to avoid repeated API calls and potential throttling. 
 The dashboard has separate tabs for the stock price tree, the European
 vanilla put, and the Bermudan/American put. 
-
-```{r appendix-dashboard-1, echo=FALSE, purl=FALSE, out.width="90%", fig.cap="The R Shiny dashboard interface. A selection of US equities is downloaded globally on application start-up to avoid repeated API requests and rate-limiting restrictions. The sidebar allows users to specify the historical date window for volatility estimation, and to adjust the number of time steps ($N$), maturity, the risk-free rate ($r$), and the strike multiplier as a proportion of $S_0$."}
-knitr::include_graphics("fig/appendix-dashboard-1.png")
-```
 
 Modifying any parameter in the sidebar triggers a recalculation of the step
 parameters $u$, $d$, and $q$ and the binomial tree figures. The trees shown in
@@ -1133,6 +1148,7 @@ similar to querying with a traditional search engine).
 
 - "...the top of both graphs in R are slightly different. (Pasting R code.) Can
   this be fixed for the plot area?"
+- "What does a 'risk free measure' actually mean?" 
 - "Help to identify the key points here"
 - "How can this error be tracked down in an Rmd file? `! Text line contains an
   invalid character. l.1 ^^@^^@...`"
