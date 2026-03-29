@@ -930,6 +930,9 @@ TBI -->
 \renewcommand{\thesubsubsection}{\thesubsection.\arabic{subsubsection}}
 ```
 
+<!-- Use: `knitr::purl("cm2-assessment02-group03.rmd", documentation = 0)` 
+to generate r file -->
+
 # (APPENDIX) Appendices {-}
 
 <!-- ## R implementation of binomial tree for \@ref(qtwo) {#apd:R-q2} -->
@@ -1065,12 +1068,53 @@ Cell(N89) = IF(N19="","",MAX($G$77-N19,$G$82*($K$5*O88+(1-$K$5)*O90)))
 #   This is applied sequentially by backward induction from step 9 to step 0.
 ```
 
+# Interactive R Shiny Dashboard {#apd-dashboard}
+
+To enable an interactive exploration of the options pricing models in
+\@ref(qthr) and \@ref(qfou), an R Shiny dashboard was constructed
+and deployed to shinyapps.io. The application is available via:
+
+- https://3enji-apps.shinyapps.io/smm068-a02-g03-dashboard/
+
+Figure \@ref(fig:appendix-dashboard-1) illustrates the dashboard interface.
+Sixteen US equities are available for selection, and the user may specify the
+historical date window over which annualised volatility is estimated. To
+maintain consistency with the closing-price methodology used in the main
+analysis (Excel's `STOCKHISTORY` function) the application uses raw rather
+than adjusted closing prices. All price series are downloaded once at
+application start-up to avoid repeated API calls and potential throttling. 
+The dashboard has separate tabs for the stock price tree, the European
+vanilla put, and the Bermudan/American put. 
+
+```{r appendix-dashboard-1, echo=FALSE, purl=FALSE, out.width="90%", fig.cap="The R Shiny dashboard interface. A selection of US equities is downloaded globally on application start-up to avoid repeated API requests and rate-limiting restrictions. The sidebar allows users to specify the historical date window for volatility estimation, and to adjust the number of time steps ($N$), maturity, the risk-free rate ($r$), and the strike multiplier as a proportion of $S_0$."}
+knitr::include_graphics("fig/appendix-dashboard-1.png")
+```
+
+Modifying any parameter in the sidebar triggers a recalculation of the step
+parameters $u$, $d$, and $q$ and the binomial tree figures. The trees shown in
+the app mirror those used throughout this document (Figure
+\@ref(fig:appendix-dashboard-2)).
+
+```{r appendix-dashboard-2, echo=FALSE, purl=FALSE, out.width="100%", fig.cap="The Bermudan/American Put tab of the R Shiny dashboard, displaying the CRR binomial option value tree for the selected underlying asset and parameter configuration. Minor discrepancies between values shown here and those reported in the main document are attributable to rounding errors."}
+knitr::include_graphics("fig/appendix-dashboard-2.png")
+```
+
+Future work could look to incorporate continuous or discrete dividend yields
+into the binomial framework to allow for more accurate pricing of
+dividend-paying equities.  Several such equities (including JNJ, PG, and WMT)
+are already present in the asset universe. Beyond this, allowing users to supply
+arbitrary Yahoo Finance tickers outside the pre-loaded selection, or embedding
+an implied volatility solver that inverts observed market option premiums, would
+broaden the application's analytical scope.
+
 # Generative AI declaration {#apd:genai}
 
 Generative AI (GenAI) tools were used throughout this project to assist with
-project planning, methodological validation, and debugging. In practice, these
-tools functioned as an additional technical resource, providing immediate
-feedback, troubleshooting code, and challenging statistical assumptions.
+project planning, methodological validation, debugging, and the development of
+the supplementary interactive dashboard described in Appendix
+\@ref(apd-dashboard). In practice, these tools functioned as an additional
+technical resource, providing immediate feedback, troubleshooting code, and
+discussing conceptual assumptions.
 
 ## Tools used {-}
 
@@ -1092,6 +1136,7 @@ similar to querying with a traditional search engine).
 - "Help to identify the key points here"
 - "How can this error be tracked down in an Rmd file? `! Text line contains an
   invalid character. l.1 ^^@^^@...`"
+- "Are there any issues with this app code? Suggest corrections for any potential bugs or errors within the server side code" 
 
 ## Use of GenAI outputs & subsequent revisions {-}
 
@@ -1101,6 +1146,8 @@ output:
 - Helped debug plotting issues and R Markdown compilation errors.
 - Commented on the structure of R code snippets and the report structure.
 - Assisted with converting draft content between document formats.
+- Reviewed elements of the R Shiny app code, identifying bugs and
+  design issues.
 
 ## Changes made {-}
 
@@ -1111,10 +1158,13 @@ implementation. For example:
   choices and annotations were manually adjusted to ensure clarity.
 <!-- - Where the AI proposed specific interpretations, these were cross-referenced -->
 <!--   with academic literature (Hull 2024, lecture notes). -->
+- In the case of the Shiny dashboard, the AI corrections were evaluated
+  against the original code by the group.  Each identified issue was
+  assessed individually.
 - The final R code for implementation was written and debugged by the group, with
   AI snippets being treated as drafts rather than final solutions.
 
 While GenAI was treated as a collaborator, the final analysis, statistical
 interpretation, and the written content of this report were generated and
-verified by the (human) group members.
+verified by all group members.
 
