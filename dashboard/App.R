@@ -8,8 +8,9 @@ library(DT)
 #------------------------------------------------------------------------------
 # GLOBAL DATA SETUP & FUNCTIONS (Runs ONCE when the app starts)
 #------------------------------------------------------------------------------
+
 # Define our 16 U.S. Stocks
-stock_choices <- sort(c(
+stock_choices_default <- sort(c(
   "MSFT",
   "AAPL",
   "GOOG",
@@ -28,47 +29,62 @@ stock_choices <- sort(c(
   "AIG"
 ))
 
-# Set start date to match your desired study period
 start_date_global <- as.Date("2016-01-01")
-# 1. as.Date("2026-02-27")
-# 2. Sys.Date()
-end_date_global <- Sys.Date()
 
-# Safely download data into a list
-price_list <- list()
-for (ticker in stock_choices) {
-  tryCatch(
-    {
-      temp_data <- suppressWarnings(
-        getSymbols(
-          ticker,
-          src = "yahoo",
-          from = start_date_global,
-          to = end_date_global,
-          auto.assign = FALSE
+# Encapsulate the download logic so it can be called both at startup and on
+# refresh (supports re-download with progress indicator).
+download_all_stocks <- function(tickers, from, to) {
+  price_list <- list()
+  for (ticker in tickers) {
+    tryCatch(
+      {
+        temp_data <- suppressWarnings(
+          getSymbols(
+            ticker,
+            src = "yahoo",
+            from = from,
+            to = to,
+            auto.assign = FALSE
+          )
         )
-      )
-      # using Cl() to match Excel's STOCKHISTORY
-      price_list[[ticker]] <- Cl(temp_data)
-    },
-    error = function(e) {
-      message(paste("Skipping", ticker, "- could not download data."))
-    }
-  )
+        price_list[[ticker]] <- Cl(temp_data)
+      },
+      error = function(e) {
+        message(paste("Skipping", ticker, "- could not download data."))
+      }
+    )
+  }
+
+  if (length(price_list) == 0) {
+    return(NULL)
+  }
+
+  merged <- do.call(merge, price_list)
+  colnames(merged) <- gsub("\\.Close", "", colnames(merged))
+  data.frame(Date = index(merged), coredata(merged))
 }
 
-# Merge and clean master dataset
-master_prices_xts <- do.call(merge, price_list)
-# CHANGE THIS LINE TO CLEAR THE .Close SUFFIX
-colnames(master_prices_xts) <- gsub("\\.Close", "", colnames(master_prices_xts))
-
-master_prices <- data.frame(
-  Date = index(master_prices_xts),
-  coredata(master_prices_xts)
+# Initial download at startup
+last_refresh_time <- Sys.time()
+master_prices <- download_all_stocks(
+  stock_choices_default,
+  start_date_global,
+  Sys.Date()
 )
-stock_choices <- intersect(stock_choices, colnames(master_prices))
+# intersect happens before ui is created, so selectizeInput is always
+# initialised with only tickers that actually downloaded successfully.
+stock_choices <- intersect(stock_choices_default, colnames(master_prices))
+
 
 # --- Custom Tree Plotting Function ---
+# Node convention (0-indexed):
+#   Column i+1  → time step i.
+#   Row    j+1  → node reached by j up-moves and (i-j) down-moves.
+#   j = 0  → all-down path (lowest price at that step).
+#   j = i  → all-up  path (highest price at that step).
+# Backward induction children of node (j, i):
+#   Up-move   child → (j+1, i+1)  i.e. matrix indices [j+2, i+2]
+#   Down-move child → (j,   i+1)  i.e. matrix indices [j+1, i+2]
 plot_tree <- function(
   V,
   S,
@@ -116,7 +132,7 @@ plot_tree <- function(
       las = 1,
       cex.axis = 0.75,
       tcl = -0.3
-    ) # text size control
+    )
   }
 
   for (i in 0:N) {
@@ -162,7 +178,7 @@ plot_tree <- function(
         lbl,
         cex = 0.52,
         pos = 3,
-        offset = 0.35, # text size control
+        offset = 0.35,
         col = ifelse(
           !is.null(show_early) && show_early[j + 1, i + 1],
           "red",
@@ -190,8 +206,9 @@ plot_tree <- function(
     pt.cex = leg_pt_cex,
     cex = 0.8,
     bg = "white"
-  ) # text size control
+  )
 }
+
 
 #------------------------------------------------------------------------------
 # UI DEFINITION
@@ -209,7 +226,7 @@ ui <- fluidPage(
         "selected_stock",
         "Select underlying asset:",
         choices = stock_choices,
-        selected = "MSFT",
+        selected = if ("MSFT" %in% stock_choices) "MSFT" else stock_choices[1],
         multiple = FALSE
       ),
 
@@ -217,13 +234,42 @@ ui <- fluidPage(
         "date_range",
         "Historical volatility period:",
         start = "2016-03-01",
-        end = "2026-02-27",
+        end = "2026-02-27", # set to match project specifications
         min = start_date_global,
         max = Sys.Date()
       ),
 
+      # show when data was last fetched
+      div(
+        style = "font-size: 0.85em; color: #666; margin-top: 4px;",
+        textOutput("last_refresh_label")
+      ),
+
+      # Refresh button triggers re-download with progress indicator
+      actionButton(
+        "refresh_data",
+        "Refresh Market Data",
+        icon = icon("rotate"),
+        class = "btn-sm btn-outline-secondary mt-1 mb-2 w-100"
+      ),
+
+      # dividend disclaimer
+      div(
+        class = "alert alert-warning p-2 mt-2",
+        style = "font-size: 0.8em;",
+        tags$b(
+          icon("triangle-exclamation"),
+          " Dividend adjustment not applied."
+        ),
+        tags$br(),
+        "Several tickers (JNJ, PG, WMT, XOM, etc.) pay meaningful dividends.
+         In a rigorous pricing context this would reduce call prices and
+         increase put prices relative to the values shown here."
+      ),
+
       hr(),
       h4("Option Parameters"),
+
       numericInput(
         "time_steps",
         "Time steps (N):",
@@ -238,22 +284,21 @@ ui <- fluidPage(
         min = 0.1,
         step = 0.1
       ),
-      numericInput(
-        "risk_free",
-        "Risk-free rate (r):",
-        value = 0.038,
-        step = 0.001
-      ),
+
+      # renamed from `r` to `r_f` to avoid shadowing R's built-in r()
+      numericInput("r_f", "Risk-free rate (r):", value = 0.038, step = 0.001),
+
+      # min = 0.01 prevents zero or negative strikes at the input level
       numericInput(
         "strike_mult",
         "Strike Multiplier (% of S0):",
         value = 1.05,
-        step = 0.01
+        step = 0.01,
+        min = 0.01
       )
     ),
 
     mainPanel(
-      # Top Header / Summary Stats Panel
       uiOutput("summary_boxes"),
       br(),
 
@@ -265,71 +310,170 @@ ui <- fluidPage(
           "1. Underlying Asset Data",
           br(),
           h4("Asset Log Returns"),
+          # explain why the first log-return is NA
+          div(
+            class = "alert alert-info p-2 mb-2",
+            style = "font-size: 0.85em;",
+            icon("circle-info"),
+            " The most recent row (if the end date has been set to today) shows ",
+            tags$strong("NA"),
+            " for the log return.
+              Log returns require two consecutive closing prices, so the earliest
+              observation in the filtered window has no prior price to difference against."
+          ),
           DTOutput("log_returns_tbl"),
+          br(),
           downloadButton(
             "download_data",
             "Download App Data as CSV",
             class = "btn-primary"
           ),
           br(),
-          br(),
+          br()
         ),
 
-        # TAB 2: Stock Tree
+        # TAB 2: Stock Price Tree
         tabPanel(
           "2. Stock Price Tree",
           br(),
           h4("CRR Binomial Stock Price Tree"),
+          uiOutput("stock_tree_warning"),
           plotOutput("plot_stock_tree", height = "600px")
         ),
 
-        # TAB 3: European Option
+        # TAB 3: European Put
         tabPanel(
           "3. European Put",
           br(),
           h4("European Vanilla Put Option Value"),
           uiOutput("euro_summary"),
           br(),
+          uiOutput("euro_tree_warning"),
           plotOutput("plot_euro_tree", height = "800px")
         ),
 
-        # TAB 4: Bermudan
+        # TAB 4: Bermudan/American Put
+        # Note: Early exercise at every node is the American contract
+        #  a Bermudan only permits exercise on a fixed discrete set of dates
+        #  which is kind of what we have here with given timesteps, but if users
+        #  edit settings too much then this will change
         tabPanel(
-          "4. Bermudan Put",
+          "4. Bermudan/American Put",
           br(),
-          h4("Bermudan Put Option Value"),
-          uiOutput("berm_summary"),
+          h4("Bermudan/American Put Option Value"),
+          div(
+            class = "alert alert-info p-2 mb-2",
+            style = "font-size: 0.85em;",
+            icon("circle-info"),
+            " ",
+            tags$strong("American vs. Bermudan: "),
+            "This tab prices an ",
+            tags$strong("American"),
+            " put, which allows
+             early exercise at ",
+            tags$em("every"),
+            " node in the tree.
+             A Bermudan option would only allow exercise on a pre-specified
+             subset of dates."
+          ),
+          uiOutput("amer_summary"),
           br(),
-          plotOutput("plot_berm_tree", height = "800px")
+          uiOutput("amer_tree_warning"), # claude suggestion
+          plotOutput("plot_amer_tree", height = "800px")
         )
       )
     )
   )
 )
 
+
 #------------------------------------------------------------------------------
 # SERVER LOGIC
 #------------------------------------------------------------------------------
 server <- function(input, output, session) {
-  # 1. Reactive Data Filter
-  stock_data <- reactive({
-    req(input$selected_stock)
+  # Reactive store for market data - allows the Refresh button to replace it
+  # without restarting the app
+  market_data_rv <- reactiveVal(
+    list(
+      prices = master_prices,
+      choices = stock_choices,
+      refreshed = last_refresh_time
+    )
+  )
 
-    df <- master_prices %>%
-      select(Date, close = all_of(input$selected_stock)) %>%
-      filter(Date >= input$date_range[1] & Date <= input$date_range[2]) %>%
-      drop_na()
+  # re-download on button click with a progress indicator
+  observeEvent(input$refresh_data, {
+    withProgress(
+      message = "Downloading market data \u2014 please wait...",
+      value = 0,
+      {
+        setProgress(0.1, detail = "Contacting Yahoo Finance...")
+        new_prices <- download_all_stocks(
+          stock_choices_default,
+          start_date_global,
+          Sys.Date()
+        )
+        setProgress(0.85, detail = "Updating reactive store...")
+        new_choices <- intersect(stock_choices_default, colnames(new_prices))
+        market_data_rv(list(
+          prices = new_prices,
+          choices = new_choices,
+          refreshed = Sys.time()
+        ))
 
-    df <- df %>% mutate(log_ret = c(NA, diff(log(close))))
-    df
+        # keep selectizeInput in sync after refresh
+        updateSelectizeInput(
+          session,
+          "selected_stock",
+          choices = new_choices,
+          selected = isolate(input$selected_stock)
+        )
+
+        # push today's date into the date-range max
+        updateDateRangeInput(
+          session,
+          "date_range",
+          end = Sys.Date(),
+          max = Sys.Date()
+        )
+      }
+    )
   })
 
-  # 2. Reactive Tree Parameters
+  output$last_refresh_label <- renderText({
+    md <- market_data_rv()
+    paste("Data fetched:", format(md$refreshed, "%Y-%m-%d %H:%M"))
+  })
+
+  # 1. Reactive: filtered stock data
+  stock_data <- reactive({
+    req(input$selected_stock)
+    md <- market_data_rv()
+
+    validate(
+      need(
+        input$selected_stock %in% colnames(md$prices),
+        "Selected stock data unavailable - try clicking Refresh Market Data."
+      )
+    )
+
+    df <- md$prices %>%
+      select(Date, close = all_of(input$selected_stock)) %>%
+      filter(Date >= input$date_range[1], Date <= input$date_range[2]) %>%
+      drop_na()
+
+    validate(need(
+      nrow(df) > 10,
+      "Fewer than 10 trading days in the selected date range. Please widen the window."
+    ))
+
+    df %>% mutate(log_ret = c(NA, diff(log(close))))
+  })
+
+  # 2. Reactive: CRR tree parameters
   tree_params <- reactive({
     df <- stock_data()
-    req(nrow(df) > 10)
-
-    log_rets <- df$log_ret[-1] # remove NA
+    log_rets <- na.omit(df$log_ret)
     S0 <- tail(df$close, 1)
 
     var_daily <- var(log_rets)
@@ -339,14 +483,31 @@ server <- function(input, output, session) {
     N <- input$time_steps
     T_mat <- input$t_mat
     dt <- T_mat / N
-
     u <- exp(sigma * sqrt(dt))
     d <- 1 / u
 
-    r <- input$risk_free
+    r_f <- input$r_f # updated name <- was named `r`
+
+    # guard against non-positive strike multiplier
+    validate(need(
+      isTRUE(input$strike_mult > 0),
+      "Strike multiplier must be greater than zero."
+    ))
     K <- input$strike_mult * S0
-    q <- (exp(r * dt) - d) / (u - d)
-    disc <- exp(-r * dt)
+
+    q <- (exp(r_f * dt) - d) / (u - d)
+    disc <- exp(-r_f * dt)
+
+    # Fvalidate that q is in (0, 1); if not, the model is not arbitrage-free
+    validate(need(
+      isTRUE(q > 0) && isTRUE(q < 1),
+      sprintf(
+        "Risk-neutral probability q = %.4f lies outside (0, 1) \u2014 the model
+is not arbitrage-free with the current parameters. Try lowering r, reducing T,
+or increasing N.",
+        q
+      )
+    ))
 
     list(
       S0 = S0,
@@ -357,19 +518,20 @@ server <- function(input, output, session) {
       dt = dt,
       u = u,
       d = d,
-      r = r,
+      r_f = r_f,
       K = K,
       q = q,
       disc = disc
     )
   })
 
-  # 3. Reactive Price & Option Trees
+  # 3. Reactive: stock-price tree and option-value trees
   calc_trees <- reactive({
     p <- tree_params()
     N <- p$N
 
-    # Stock Tree
+    # Stock price tree
+    # S[j+1, i+1] = S0 * u^j * d^(i-j)   (j up-moves, i-j down-moves)
     S <- matrix(0, N + 1, N + 1)
     for (i in 0:N) {
       for (j in 0:i) {
@@ -377,7 +539,7 @@ server <- function(input, output, session) {
       }
     }
 
-    # European Put Tree
+    # European Put: no early exercise - pure risk-neutral discounting
     V_eu <- matrix(0, N + 1, N + 1)
     for (j in 0:N) {
       V_eu[j + 1, N + 1] <- max(p$K - S[j + 1, N + 1], 0)
@@ -389,51 +551,68 @@ server <- function(input, output, session) {
       }
     }
 
-    # Bermudan Put Tree
-    V_bm <- matrix(0, N + 1, N + 1)
+    # Bermudan Put as early exercise checked at every non-terminal node
+    V_am <- matrix(0, N + 1, N + 1)
     early <- matrix(FALSE, N + 1, N + 1)
     for (j in 0:N) {
-      V_bm[j + 1, N + 1] <- max(p$K - S[j + 1, N + 1], 0)
+      V_am[j + 1, N + 1] <- max(p$K - S[j + 1, N + 1], 0)
     }
     for (i in (N - 1):0) {
       for (j in 0:i) {
         cont <- p$disc *
-          (p$q * V_bm[j + 2, i + 2] + (1 - p$q) * V_bm[j + 1, i + 2])
+          (p$q * V_am[j + 2, i + 2] + (1 - p$q) * V_am[j + 1, i + 2])
         exer <- p$K - S[j + 1, i + 1]
-        V_bm[j + 1, i + 1] <- max(cont, exer)
+        V_am[j + 1, i + 1] <- max(cont, exer)
         early[j + 1, i + 1] <- (exer > cont) & (exer > 0)
       }
     }
 
-    list(S = S, V_eu = V_eu, V_bm = V_bm, early = early)
+    list(S = S, V_eu = V_eu, V_am = V_am, early = early)
   })
 
+  # reusable helper that emits a warning banner when N is large
+  large_n_warning_ui <- function(n, threshold = 15) {
+    if (isTRUE(n > threshold)) {
+      tags$div(
+        class = "alert alert-warning p-2 mb-2",
+        style = "font-size: 0.85em;",
+        icon("triangle-exclamation"),
+        sprintf(
+          " N = %d is large \u2014 node labels will overlap and the tree will be
+            difficult to read. Consider N \u2264 %d for visual clarity.",
+          n,
+          threshold
+        )
+      )
+    }
+  }
+
+  output$stock_tree_warning <- renderUI({
+    large_n_warning_ui(input$time_steps)
+  })
+  output$euro_tree_warning <- renderUI({
+    large_n_warning_ui(input$time_steps)
+  })
+  output$amer_tree_warning <- renderUI({
+    large_n_warning_ui(input$time_steps)
+  })
+
+  # Download handler
   output$download_data <- downloadHandler(
     filename = function() {
-      paste(
-        "shiny_app_data_",
-        input$selected_stock,
-        "_",
-        Sys.Date(),
-        ".csv",
-        sep = ""
-      )
+      paste0("app_data_", input$selected_stock, "_", Sys.Date(), ".csv")
     },
-    content = function(file) {
-      # Fetch the raw, unrounded data for accurate comparison
-      df_export <- stock_data()
-      write.csv(df_export, file, row.names = FALSE)
-    }
+    content = function(file) write.csv(stock_data(), file, row.names = FALSE)
   )
 
-  # --- SUMMARY UI AT TOP ---
+  # --- Summary header ---
   output$summary_boxes <- renderUI({
     p <- tree_params()
     trees <- calc_trees()
 
     v0_eu <- trees$V_eu[1, 1]
-    v0_bm <- trees$V_bm[1, 1]
-    prem <- v0_bm - v0_eu
+    v0_am <- trees$V_am[1, 1]
+    prem <- v0_am - v0_eu
 
     arrow_html <- ifelse(
       prem > 0.0001,
@@ -442,33 +621,33 @@ server <- function(input, output, session) {
     )
 
     tagList(
-      # One unified box for parameters
       card(
         card_header(
           "Model Parameters & Volatility Metrics",
           class = "bg-primary text-white"
         ),
-        card_body(
-          HTML(sprintf(
-            "<div style='font-size: 1.1em;'>
-             <b>S0:</b> $%.2f &nbsp;|&nbsp; <b>Strike (K):</b> $%.2f &nbsp;|&nbsp; <b>Var:</b> %.6f &nbsp;|&nbsp; <b>SD:</b> %.6f &nbsp;|&nbsp; <b>Ann. Vol (\u03c3):</b> %.6f <br>
-             <b>dt:</b> %.4f &nbsp;|&nbsp; <b>N:</b> %d &nbsp;|&nbsp; <b>u:</b> %.6f &nbsp;|&nbsp; <b>d:</b> %.6f &nbsp;|&nbsp; <b>q:</b> %.6f &nbsp;|&nbsp; <b>r:</b> %.1f%%
-             </div>",
-            p$S0,
-            p$K,
-            p$var_daily,
-            p$std_daily,
-            p$sigma,
-            p$dt,
-            p$N,
-            p$u,
-            p$d,
-            p$q,
-            p$r * 100
-          ))
-        )
+        card_body(HTML(sprintf(
+          "<div style='font-size: 1.1em;'>
+           <b>S0:</b> $%.2f &nbsp;|&nbsp; <b>Strike (K):</b> $%.2f &nbsp;|&nbsp;
+           <b>Var:</b> %.6f &nbsp;|&nbsp; <b>SD:</b> %.6f &nbsp;|&nbsp;
+           <b>Ann. Vol (\u03c3):</b> %.6f <br>
+           <b>dt:</b> %.4f &nbsp;|&nbsp; <b>N:</b> %d &nbsp;|&nbsp;
+           <b>u:</b> %.6f &nbsp;|&nbsp; <b>d:</b> %.6f &nbsp;|&nbsp;
+           <b>q:</b> %.6f &nbsp;|&nbsp; <b>r:</b> %.1f%%
+           </div>",
+          p$S0,
+          p$K,
+          p$var_daily,
+          p$std_daily,
+          p$sigma,
+          p$dt,
+          p$N,
+          p$u,
+          p$d,
+          p$q,
+          p$r_f * 100
+        )))
       ),
-      # Prices boxes below
       layout_column_wrap(
         width = 1 / 3,
         value_box(
@@ -477,8 +656,8 @@ server <- function(input, output, session) {
           theme = "success"
         ),
         value_box(
-          title = "Bermudan Put (V0)",
-          value = sprintf("$%.4f", v0_bm),
+          title = "Bermudan/American Put (V0)",
+          value = sprintf("$%.4f", v0_am),
           theme = "success"
         ),
         value_box(
@@ -490,22 +669,19 @@ server <- function(input, output, session) {
     )
   })
 
-  # --- TAB 1 OUTPUTS ---
+  # --- Tab 1 ---
   output$log_returns_tbl <- renderDT({
-    df <- stock_data() %>% drop_na() %>% arrange(desc(Date))
-
-    # Format and rename columns
-    df <- df %>%
+    df <- stock_data() %>%
+      arrange(desc(Date)) %>%
       mutate(
         Close = round(close, 2),
         `Daily log returns` = round(log_ret, 4)
       ) %>%
       select(Date, Close, `Daily log returns`)
-
-    datatable(df, options = list(pageLength = 10, dom = 'tp'), rownames = FALSE)
+    datatable(df, options = list(pageLength = 10, dom = "tp"), rownames = FALSE)
   })
 
-  # --- TAB 2 OUTPUTS ---
+  # --- Tab 2 ---
   output$plot_stock_tree <- renderPlot({
     p <- tree_params()
     trees <- calc_trees()
@@ -551,12 +727,12 @@ server <- function(input, output, session) {
           cex = 0.52,
           pos = 3,
           offset = 0.35
-        ) # text size control
+        )
       }
     }
   })
 
-  # --- TAB 3 OUTPUTS ---
+  # --- Tab 3: European Put ---
   output$euro_summary <- renderUI({
     p <- tree_params()
     trees <- calc_trees()
@@ -575,7 +751,6 @@ server <- function(input, output, session) {
     layout(matrix(1:2), heights = c(1.8, 3.2))
     par(oma = c(0, 0, 0, 0))
 
-    # Top plot - log scale
     par(mar = c(0, 4, 3, 1))
     plot_tree(
       trees$V_eu,
@@ -583,7 +758,7 @@ server <- function(input, output, session) {
       sprintf(
         "European Put (K=%.2f, r=%.1f%%)  |  V0 = %.4f",
         p$K,
-        p$r * 100,
+        p$r_f * 100,
         trees$V_eu[1, 1]
       ),
       N = p$N,
@@ -592,42 +767,40 @@ server <- function(input, output, session) {
       show_x_ticks = FALSE
     )
 
-    # Bottom plot - linear scale
     par(mar = c(4, 4, 0.5, 1), mgp = c(2, 1, 0))
     plot_tree(trees$V_eu, trees$S, title = "", N = p$N, log_scale = FALSE)
   })
 
-  # --- TAB 4 OUTPUTS ---
-  output$berm_summary <- renderUI({
+  # --- Tab 4: American/Bermudan Put ---
+  output$amer_summary <- renderUI({
     p <- tree_params()
     trees <- calc_trees()
-    prem <- trees$V_bm[1, 1] - trees$V_eu[1, 1]
+    prem <- trees$V_am[1, 1] - trees$V_eu[1, 1]
     HTML(sprintf(
       "<b>S0:</b> $%.2f | <b>Strike (K):</b> $%.2f | <b>Option Value (V0):</b> $%.4f | <b>Premium:</b> $%.4f",
       p$S0,
       p$K,
-      trees$V_bm[1, 1],
+      trees$V_am[1, 1],
       prem
     ))
   })
 
-  output$plot_berm_tree <- renderPlot({
+  output$plot_amer_tree <- renderPlot({
     p <- tree_params()
     trees <- calc_trees()
 
     layout(matrix(1:2), heights = c(1.8, 3.2))
     par(oma = c(0, 0, 0, 0))
 
-    # Top plot - log scale
     par(mar = c(0, 4, 3, 1))
     plot_tree(
-      trees$V_bm,
+      trees$V_am,
       trees$S,
       sprintf(
-        "Bermudan Put (K=%.2f, r=%.1f%%)  |  V0 = %.4f",
+        "Bermudan/American Put (K=%.2f, r=%.1f%%)  |  V0 = %.4f",
         p$K,
-        p$r * 100,
-        trees$V_bm[1, 1]
+        p$r_f * 100,
+        trees$V_am[1, 1]
       ),
       N = p$N,
       log_scale = TRUE,
@@ -636,10 +809,9 @@ server <- function(input, output, session) {
       show_early = trees$early
     )
 
-    # Bottom plot - linear scale
     par(mar = c(4, 4, 0.5, 1), mgp = c(2, 1, 0))
     plot_tree(
-      trees$V_bm,
+      trees$V_am,
       trees$S,
       title = "",
       N = p$N,
